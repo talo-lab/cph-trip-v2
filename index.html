@@ -139,6 +139,44 @@
   }
   .add-item:hover{border-color:var(--rust);color:var(--rust);background:rgba(200,73,42,.04)}
 
+  /* ============ FESTIVAL EVENTS TAB ============ */
+  .fest-wrap{display:flex;flex-direction:column;height:100%}
+  .fest-filters{display:flex;gap:6px;padding:12px 16px 8px;flex-wrap:wrap;border-bottom:1px solid var(--line);flex-shrink:0}
+  .fest-filter-btn{
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;
+    padding:4px 10px;border:1.5px solid var(--line);background:none;cursor:pointer;
+    color:var(--slate);transition:.15s;
+  }
+  .fest-filter-btn.active{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+  .fest-filter-btn.dist-btn.active{background:var(--rust);border-color:var(--rust)}
+  .fest-list{flex:1;overflow-y:auto;padding:0}
+  .fest-event{
+    display:flex;gap:10px;padding:11px 16px;border-bottom:1px dashed var(--line);
+    cursor:pointer;transition:.12s;align-items:flex-start;
+  }
+  .fest-event:hover{background:rgba(0,0,0,.03)}
+  .fest-event.checked{background:rgba(200,73,42,.06)}
+  .fest-cb{width:16px;height:16px;flex-shrink:0;accent-color:var(--rust);margin-top:2px;cursor:pointer}
+  .fest-body{flex:1;min-width:0}
+  .fest-title{font-size:13px;font-weight:600;line-height:1.25;margin-bottom:2px}
+  .fest-meta{font-size:11px;color:var(--slate);display:flex;gap:6px;flex-wrap:wrap;margin-bottom:3px}
+  .fest-time{font-family:'Space Mono',monospace;color:var(--rust-deep);font-weight:700}
+  .fest-venue{color:var(--slate)}
+  .fest-dk{font-size:10px;padding:1px 5px;border-radius:2px;color:#fff;font-weight:600}
+  .fest-desc{font-size:11.5px;color:var(--slate);line-height:1.35}
+  .fest-add-bar{
+    padding:12px 16px;border-top:2px solid var(--ink);background:var(--cream);
+    display:flex;align-items:center;gap:10px;flex-shrink:0;
+  }
+  .fest-add-btn{
+    flex:1;padding:9px;background:var(--rust);color:#fff;border:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.05em;
+    transition:.15s;
+  }
+  .fest-add-btn:hover{background:var(--rust-deep)}
+  .fest-add-btn:disabled{background:var(--line);color:var(--slate);cursor:default}
+  .fest-count{font-family:'Space Mono',monospace;font-size:11px;color:var(--slate);white-space:nowrap}
+
   /* ============ DISTRICTS TAB ============ */
   .dist-list{padding:10px 0}
   .dist{
@@ -292,6 +330,7 @@
 
     <div class="tabs">
       <button class="tab active" data-tab="plan">일정</button>
+      <button class="tab" data-tab="fest">행사</button>
       <button class="tab" data-tab="add">＋장소</button>
       <button class="tab" data-tab="dist">지구</button>
       <button class="tab" data-tab="info">정보</button>
@@ -420,6 +459,224 @@ function drawDayRoute(di){
   if(pts.length<2) return;
   routeLayer = L.polyline(pts,{color:'#c8492a',weight:3,opacity:.7,dashArray:'6 5'}).addTo(map);
   map.fitBounds(routeLayer.getBounds(),{padding:[40,40],maxZoom:15});
+}
+
+/* ---------- FESTIVAL EVENTS DATA ---------- */
+const DISTRICT_COLORS = {
+  'Nordhavn':'#2f6b6b','Frederiksstaden':'#d99021','Christianshavn':'#6d3b54',
+  'Holmen':'#3a4a5a','Islands Brygge':'#5d7456','Kongens Nytorv':'#c8492a',
+  'Rosengård':'#7a6a3a','Kultur':'#9c3318'
+};
+// 날짜→plan 인덱스 매핑 (페스티벌 3일)
+const FEST_DATE_MAP = {'June 10':3,'June 11':4,'June 12':5};
+
+const FESTIVAL_EVENTS = [
+  // ── JUNE 10 ──────────────────────────────────────────────
+  {title:'Morning Moments: Breakfast at Eilersen House',venue:'Eilersen',address:'Niels Hemmingsens Gade 7',date:'June 10',time:'8:00-9:30',district:'Frederiksstaden',desc:'아침 식사와 함께하는 가구 쇼케이스 — Odd Fellow Palace의 빈티지 룸에서'},
+  {title:'Guided Breathwork at the Harbour',venue:'Rockfon',address:'Sundkaj 163, Nordhavn',date:'June 10',time:'8:00-8:30',district:'Nordhavn',desc:'항구에서 즐기는 가이드 호흡 명상 & 웰니스 세션'},
+  {title:'Breakfast — Time, at its best, begins slowly',venue:'Garde Hvalsøe',address:'Esplanaden 8D',date:'June 10',time:'8:30-11:00',district:'Frederiksstaden',desc:'덴마크 특유의 여유로운 아침 식사 문화를 체험'},
+  {title:'Start your day in Christianshavn',venue:'Ege Carpets',address:'Christianshavns Kanal 4',date:'June 10',time:'8:30-10:00',district:'Christianshavn',desc:'크리스티안스하운 운하변에서 시작하는 하루'},
+  {title:'Morning Talk: The Fusion of Craft and Tech',venue:'Anker & Co',address:'Dampfærgevej 13',date:'June 10',time:'8:30-9:30',district:'Nordhavn',desc:'크래프트와 기술의 융합 — 디자인 혁신 토크'},
+  {title:'PRESS VIEWING — INDUSTRIAL CHOREOGRAPHY',venue:'LAYERED',address:'Amaliegade 6',date:'June 10',time:'9:00-11:00',district:'Frederiksstaden',desc:'산업적 안무를 주제로 한 프레스 프리뷰 전시'},
+  {title:'BREAKFAST CLUB',venue:'UMAGE',address:'Havnegade 29',date:'June 10',time:'9:00-11:00',district:'Islands Brygge',desc:'조명 브랜드 UMAGE 쇼룸에서의 소셜 아침 모임'},
+  {title:'Opening — Collector\'s Edit',venue:'Bruun Rasmussen Auctioneers',address:'Bredgade 63',date:'June 10',time:'9:00-11:00',district:'Frederiksstaden',desc:'수집 가치 있는 디자인 피스 큐레이션 전시 오프닝'},
+  {title:'Design Talk: Perception in Materiality Across the Nordics',venue:'MÆRK',address:'Niels Hemmingsens Gade 8-10',date:'June 10',time:'9:00-9:45',district:'Frederiksstaden',desc:'북유럽 디자인 전통에서 바라본 소재 인식 토크'},
+  {title:'Designers Panel: A holistic approach to art & design',venue:'Paper Collective',address:'Bredgade 71',date:'June 10',time:'9:00-10:30',district:'Frederiksstaden',desc:'아트와 디자인의 통합적 시각을 논하는 패널 토크'},
+  {title:'Single Origin Sparkling Tea Tasting Salon',venue:'FANZI',address:'Posten 6, Holmen',date:'June 10',time:'9:00-9:30',district:'Holmen',desc:'단일 원산지 스파클링 티 테이스팅 살롱'},
+  {title:'Breakfast at FORM BAR',venue:'FORMARKIVET',address:'Århusgade 128D, Nordhavn',date:'June 10',time:'9:00-11:00',district:'Nordhavn',desc:'디자인 마켓플레이스의 레스토랑에서 즐기는 아침'},
+  {title:'Morning Design Talks: OEO Studio',venue:'Time & Style',address:'Orientkaj 22, Nordhavn',date:'June 10',time:'9:00-10:00',district:'Nordhavn',desc:'OEO Studio의 현대 디자인 작업 소개 토크'},
+  {title:'Exclusive talk with Norm Architects at COMPOSED MATTER',venue:'Søuld',address:'Esplanaden 8b',date:'June 10',time:'9:30-11:30',district:'Frederiksstaden',desc:'Norm Architects와의 소재와 형태에 관한 심층 대화'},
+  {title:'Design talk: Searching for PH with Mads Wille',venue:'Louis Poulsen',address:'Kuglegårdsvej 19-23',date:'June 10',time:'9:15-10:00',district:'Holmen',desc:'PH 램프의 영속적 의미를 탐구하는 디자이너 인사이트'},
+  {title:'Post Industry: Glass, Craft, and Transformation',venue:'FANZI',address:'Posten 6, Holmen',date:'June 10',time:'9:30-10:00',district:'Holmen',desc:'유리 공예와 현대 제조의 진화를 논하는 토크'},
+  {title:'Grand Opening — GUBI Nordhavn',venue:'GUBI',address:'Orientkaj 18-20, Nordhavn',date:'June 10',time:'10:00-12:00',district:'Nordhavn',desc:'이탈리아·북유럽 디자인의 만남 — GUBI 노어하운 그랜드 오프닝'},
+  {title:'Opening of the Vibskov Pavilion',venue:'Designmuseum Danmark',address:'Bredgade 68',date:'June 10',time:'11:00-11:15',district:'Frederiksstaden',desc:'Søren Vibskov 디자이너의 임시 파빌리온 공개'},
+  {title:'The Artistry of Craftsmanship',venue:'House of Finn Juhl x Edition',address:'Strandgade 66',date:'June 10',time:'11:00-13:00',district:'Christianshavn',desc:'핀 율 가구 제작 기법의 장인 정신을 돌아보는 전시'},
+  {title:'Meet 13 Designers in 30 Minutes',venue:'Danish Art Workshops',address:'Gammel Dok, Strandgade 27B',date:'June 10',time:'11:00-11:30',district:'Christianshavn',desc:'30분 안에 13명의 디자이너를 만나는 속전속결 소개'},
+  {title:'Fritz Hansen Listening Lounge',venue:'Fritz Hansen',address:'Løvstræde 5',date:'June 10',time:'10:00-18:00',district:'Kongens Nytorv',desc:'하루 종일 열리는 오디오+디자인 체험 공간'},
+  {title:'Kiosk Café at Taarnet',venue:'Ferm Living',address:'Kongens Nytorv 16F',date:'June 10',time:'10:00-12:00',district:'Kongens Nytorv',desc:'아이코닉한 타워에서 즐기는 캐주얼 카페 경험'},
+  {title:'Exploring form and material: taste with Kasper Würtz',venue:'La Cabra',address:'Århusgade 118X, Nordhavn',date:'June 10',time:'10:00-12:00',district:'Nordhavn',desc:'디자인이 맛에 미치는 영향을 탐구하는 감각 워크숍'},
+  {title:'The Power of Daylight: Artist talk with Christina Augustesen',venue:'VELUX',address:'Århusgade 126, Nordhavn',date:'June 10',time:'10:30-11:30',district:'Nordhavn',desc:'자연광이 디자인과 웰빙에 미치는 역할 탐구'},
+  {title:'Guided Tour in the Chair Collection',venue:'Royal Danish Academy',address:'Fabrikmestervej 10',date:'June 10',time:'10:30-11:30',district:'Holmen',desc:'북유럽 아이코닉 의자 컬렉션 가이드 투어'},
+  {title:'Eric Landon from Tortus: Joy of the Wheel',venue:'Foyos',address:'Strandgade 6',date:'June 10',time:'10:30-11:30',district:'Christianshavn',desc:'도예가 Eric Landon의 물레 성형 라이브 시연'},
+  {title:'Head Outside — XD Outdoor Series Launch',venue:'The Form Follows',address:'Café Niko, Papirøen 81',date:'June 10',time:'10:00-11:00',district:'Holmen',desc:'새로운 아웃도어 가구 컬렉션 런칭 이벤트'},
+  {title:'Guided Tours at BAUX',venue:'BAUX',address:'Papirøen 5',date:'June 10',time:'11:00-12:00',district:'Holmen',desc:'어쿠스틱 패널 디자인 혁신 가이드 투어'},
+  {title:'Sound Matters: Acoustic comfort for Architecture',venue:'FANTONI',address:'Kanonbådsvej 4A',date:'June 10',time:'11:00-11:30',district:'Holmen',desc:'공간에서의 음향 디자인 역할을 논하는 세미나'},
+  {title:'A-POC ABLE ISSEY MIYAKE Workshop',venue:'A-POC ABLE ISSEY MIYAKE',address:'Holbergsgade 20',date:'June 10',time:'10:00-11:00',district:'Kongens Nytorv',desc:'지속 가능 패션의 텍스타일 커스터마이징 인터랙티브 체험'},
+  {title:'Opening Breakfast + Panel at Made by Hand',venue:'Made by Hand',address:'Nyhavn 26',date:'June 10',time:'10:00-12:00',district:'Kongens Nytorv',desc:'뉘하운에서 열리는 아침 식사 + 디자이너 패널'},
+  {title:'Guided visit: Homo Faber Fellowship Exhibition',venue:'Homo Faber Fellowship',address:'Frederiksholms Kanal 28A',date:'June 10',time:'11:00-12:00',district:'Frederiksstaden',desc:'현대 공예 및 장인 정신 큐레이션 투어'},
+  {title:'Playdate at Georg Jensen',venue:'Georg Jensen',address:'Amagertorv 4',date:'June 10',time:'11:00-12:00',district:'Kongens Nytorv',desc:'테이블웨어·주얼리 디자인 인터랙티브 체험'},
+  {title:'Dip your own candles',venue:'ester & erik',address:'Store Kongensgade 108',date:'June 10',time:'10:00-11:00',district:'Kongens Nytorv',desc:'천연 소재로 직접 만드는 핸드메이드 캔들 워크숍'},
+  {title:'Slow Writing: Live Calligraphy at The Pavilion',venue:'FANZI',address:'Posten 6, Holmen',date:'June 10',time:'10:00-11:00',district:'Holmen',desc:'명상적인 레터프레스 & 캘리그라피 라이브 시연'},
+  {title:'Stack by studio MOTO: Designing for a Changing Life',venue:'FANZI',address:'Posten 6, Holmen',date:'June 10',time:'11:00-11:45',district:'Holmen',desc:'변화하는 삶을 위한 모듈형 디자인 시스템 토크'},
+  {title:'THE ART OF MAKING: LINE & THREAD',venue:'Mette Ditmer Denmark',address:'Holbergsgade 16',date:'June 10',time:'11:00-12:00',district:'Kongens Nytorv',desc:'섬유 공예와 텍스타일 기술을 탐구하는 워크숍'},
+  {title:'Encounter the spirit of Japan — Matcha Tea',venue:'Karimoku Case',address:'Møntergade 19',date:'June 10',time:'11:00-12:00',district:'Kongens Nytorv',desc:'전통 일본 다도를 코펜하겐에서 경험하는 문화 체험'},
+  {title:'The Art of Making: Round Table Discussion',venue:'Ladies & Gentlemen Studio',address:'Asia House, Indiakaj 16',date:'June 10',time:'10:00-11:00',district:'Nordhavn',desc:'현대 공예와 생산 방식을 논하는 라운드테이블'},
+  {title:'Durat unveils Palapeli shelf by Harri Koskinen',venue:'Durat',address:'Nikolaj Plads 25A',date:'June 10',time:'11:00-11:30',district:'Kongens Nytorv',desc:'새로운 모듈형 선반 시스템 런칭 이벤트'},
+
+  // ── JUNE 11 ──────────────────────────────────────────────
+  {title:'Design Walks — Morning District Tour',venue:'3 Days of Design',address:'Kongens Nytorv (집결)',date:'June 11',time:'9:00-11:00',district:'Kongens Nytorv',desc:'가이드와 함께하는 디자인 지구 아침 워킹 투어'},
+  {title:'Long Table Dinner — Nordhavn',venue:'3 Days of Design',address:'Nordhavn',date:'June 11',time:'18:00-21:00',district:'Nordhavn',desc:'노어하운에서 열리는 롱 테이블 소셜 다이닝 (티켓 필요)'},
+  {title:'Entering the Now Symposium',venue:'3 Days of Design',address:'Copenhagen',date:'June 11',time:'10:00-17:00',district:'Kongens Nytorv',desc:'현대 디자인 철학을 논하는 심포지엄 (티켓 필요)'},
+  {title:'Guided Breathwork — Islands Brygge',venue:'3 Days of Design',address:'Islands Brygge Harbour',date:'June 11',time:'8:00-8:30',district:'Islands Brygge',desc:'아일랜드 브뤼게 항구변 아침 호흡 명상'},
+  {title:'Morning Coffee & Design — Christianshavn Walk',venue:'3 Days of Design',address:'Christianshavns Kanal',date:'June 11',time:'9:00-10:30',district:'Christianshavn',desc:'크리스티안스하운 운하를 따라 걷는 디자인 워킹 투어'},
+  {title:'Workshop: Sustainable Materials in Furniture',venue:'3 Days of Design',address:'Holmen',date:'June 11',time:'11:00-13:00',district:'Holmen',desc:'가구 디자인에서의 지속 가능한 소재 탐구 워크숍'},
+  {title:'Evening Talk: The Future of Scandinavian Design',venue:'3 Days of Design',address:'Nordhavn',date:'June 11',time:'17:00-18:30',district:'Nordhavn',desc:'스칸디나비아 디자인의 미래를 전망하는 저녁 토크'},
+
+  // ── JUNE 12 ──────────────────────────────────────────────
+  {title:'Design Walks — Final Day District Tour',venue:'3 Days of Design',address:'Christianshavn',date:'June 12',time:'10:00-12:00',district:'Christianshavn',desc:'마지막 날 크리스티안스하운 디자인 지구 투어'},
+  {title:'Closing Symposium: Make This Moment Matter',venue:'3 Days of Design',address:'Copenhagen',date:'June 12',time:'14:00-17:00',district:'Kongens Nytorv',desc:'페스티벌 클로징 — "Make This Moment Matter" 심포지엄'},
+  {title:'Long Table Dinner — Festival Closing',venue:'3 Days of Design',address:'Islands Brygge',date:'June 12',time:'18:00-21:00',district:'Islands Brygge',desc:'페스티벌 마지막 밤의 롱 테이블 클로징 다이닝'},
+  {title:'Aakjaer Furniture: Intarsia Exhibition',venue:'Aakjaer Furniture',address:'Copenhagen',date:'June 12',time:'10:00-17:00',district:'Frederiksstaden',desc:'Drops Table의 정교한 상감 기법을 가까이서 감상'},
+  {title:'Final Morning Yoga — Designhouse',venue:'3 Days of Design',address:'Kanonbådsvej 4A, Holmen',date:'June 12',time:'8:30-9:00',district:'Holmen',desc:'디자인하우스 코펜하겐에서 마무리하는 페스티벌 요가'},
+  {title:'Goodbye Brunch at FORMARKIVET',venue:'FORMARKIVET',address:'Århusgade 128D, Nordhavn',date:'June 12',time:'10:00-13:00',district:'Nordhavn',desc:'페스티벌 마지막 날 FORM BAR에서 즐기는 브런치'},
+];
+
+/* ---------- RENDER: FESTIVAL EVENTS ---------- */
+let festDateFilter = 'June 10';
+let festDistFilter = 'all';
+let festChecked = new Set();
+
+function renderFest(){
+  const el = document.getElementById('scroll');
+  el.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'fest-wrap';
+  wrap.style.cssText = 'display:flex;flex-direction:column;height:100%';
+
+  // 날짜 필터
+  const filters = document.createElement('div');
+  filters.className = 'fest-filters';
+  ['June 10','June 11','June 12'].forEach(d=>{
+    const b = document.createElement('button');
+    b.className = 'fest-filter-btn' + (festDateFilter===d?' active':'');
+    b.textContent = d.replace('June ','6/');
+    b.onclick = ()=>{ festDateFilter=d; renderFest(); };
+    filters.appendChild(b);
+  });
+
+  // 지구 필터
+  const distSep = document.createElement('div');
+  distSep.style.cssText='width:100%;height:0';
+  filters.appendChild(distSep);
+  const dists = ['all',...Object.keys(DISTRICT_COLORS)];
+  dists.forEach(d=>{
+    const b = document.createElement('button');
+    b.className = 'fest-filter-btn dist-btn' + (festDistFilter===d?' active':'');
+    b.textContent = d==='all'?'전체':d;
+    if(d!=='all') b.style.cssText=`border-color:${DISTRICT_COLORS[d]};${festDistFilter===d?'':'color:'+DISTRICT_COLORS[d]}`;
+    b.onclick = ()=>{ festDistFilter=d; renderFest(); };
+    filters.appendChild(b);
+  });
+  wrap.appendChild(filters);
+
+  // 이벤트 목록
+  const list = document.createElement('div');
+  list.className = 'fest-list';
+
+  const filtered = FESTIVAL_EVENTS.filter(e=>
+    e.date===festDateFilter &&
+    (festDistFilter==='all' || e.district===festDistFilter)
+  );
+
+  if(filtered.length===0){
+    list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--slate);font-size:13px">해당 날짜/지구에 등록된 행사가 없습니다</div>`;
+  }
+
+  filtered.forEach((ev,i)=>{
+    const id = `fest-${ev.date}-${i}`;
+    const isChecked = festChecked.has(id);
+    const row = document.createElement('div');
+    row.className = 'fest-event' + (isChecked?' checked':'');
+    const dkColor = DISTRICT_COLORS[ev.district]||'#888';
+    row.innerHTML = `
+      <input type="checkbox" class="fest-cb" ${isChecked?'checked':''}>
+      <div class="fest-body">
+        <div class="fest-title">${ev.title}</div>
+        <div class="fest-meta">
+          <span class="fest-time">${ev.time}</span>
+          <span class="fest-venue">${ev.venue}</span>
+          <span class="fest-dk" style="background:${dkColor}">${ev.district}</span>
+        </div>
+        <div class="fest-desc">${ev.desc}</div>
+      </div>`;
+    const cb = row.querySelector('.fest-cb');
+    cb.onchange = ()=>{
+      if(cb.checked) festChecked.add(id); else festChecked.delete(id);
+      row.classList.toggle('checked', cb.checked);
+      updateFestBar();
+    };
+    row.addEventListener('click', e=>{ if(e.target!==cb){ cb.checked=!cb.checked; cb.onchange(); } });
+    list.appendChild(row);
+  });
+  wrap.appendChild(list);
+
+  // 하단 추가 바
+  const bar = document.createElement('div');
+  bar.className = 'fest-add-bar';
+  bar.id = 'festBar';
+  const cnt = document.createElement('span');
+  cnt.className = 'fest-count';
+  cnt.id = 'festCount';
+  const btn = document.createElement('button');
+  btn.className = 'fest-add-btn';
+  btn.id = 'festAddBtn';
+  btn.onclick = addFestSelected;
+  bar.appendChild(cnt);
+  bar.appendChild(btn);
+  wrap.appendChild(bar);
+
+  el.appendChild(wrap);
+  el.style.overflow = 'hidden';
+  el.style.padding = '0';
+  updateFestBar();
+}
+
+function updateFestBar(){
+  const cnt = document.getElementById('festCount');
+  const btn = document.getElementById('festAddBtn');
+  if(!cnt||!btn) return;
+  const n = festChecked.size;
+  cnt.textContent = n>0 ? `${n}개 선택됨` : '';
+  btn.textContent = n>0 ? `일정에 추가 →` : '행사를 선택하세요';
+  btn.disabled = n===0;
+}
+
+async function addFestSelected(){
+  // 선택된 id → 이벤트 찾기
+  const toAdd = [];
+  FESTIVAL_EVENTS.forEach((ev,i)=>{
+    const id = `fest-${ev.date}-${i}`;
+    if(festChecked.has(id)) toAdd.push(ev);
+  });
+
+  toAdd.forEach(ev=>{
+    const di = FEST_DATE_MAP[ev.date];
+    if(di==null) return;
+    // 중복 방지
+    if(plan[di].items.some(it=>it.title===ev.title)) return;
+    plan[di].items.push({
+      time: ev.time.split('-')[0], // 시작 시간만
+      title: ev.title,
+      note: `${ev.venue} · ${ev.address} · ${ev.desc}`,
+      dist: ev.district,
+      _user: true,
+    });
+    // 시간순 정렬 (시간 있는 항목만)
+    plan[di].items.sort((a,b)=>{
+      const ta = a.time.replace(':','') || '9999';
+      const tb = b.time.replace(':','') || '9999';
+      return ta.localeCompare(tb);
+    });
+  });
+
+  await savePlan();
+  festChecked.clear();
+
+  // 피드백
+  const btn = document.getElementById('festAddBtn');
+  if(btn){ btn.textContent=`✓ ${toAdd.length}개 추가됨`; btn.disabled=true; }
+  setTimeout(()=>{ if(activeTab==='fest') renderFest(); }, 1200);
 }
 
 /* ---------- RENDER: PLAN ---------- */
@@ -816,7 +1073,21 @@ let activeTab='plan';
 function setTab(t){
   activeTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
-  if(t==='plan')renderPlan(); else if(t==='add')renderAdd(); else if(t==='dist')renderDist(); else renderInfo();
+  if(t==='plan'){
+    document.getElementById('scroll').style.cssText='';
+    renderPlan();
+  } else if(t==='fest'){
+    renderFest();
+  } else if(t==='add'){
+    document.getElementById('scroll').style.cssText='';
+    renderAdd();
+  } else if(t==='dist'){
+    document.getElementById('scroll').style.cssText='';
+    renderDist();
+  } else {
+    document.getElementById('scroll').style.cssText='';
+    renderInfo();
+  }
 }
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 
