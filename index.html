@@ -395,10 +395,53 @@
   .item{cursor:pointer}
   .item:hover .item-sel{border-color:var(--rust)}
 
-  /* ============ AI PLAN EDIT ============ */
-  .edit-wrap{padding:18px 24px;border-top:2px dashed var(--line);margin-top:4px}
-  .edit-wrap h3{font-family:'Fraunces',serif;font-size:17px;color:var(--teal);margin-bottom:4px}
-  .edit-wrap .lead{font-size:12px;color:var(--slate);line-height:1.5;margin-bottom:10px}
+  /* ============ CONFLICT CARD ============ */
+  .conflict-card{
+    margin-top:12px;padding:13px 14px;border-left:3px solid var(--ochre);background:#fff8ea;
+    font-size:12.5px;line-height:1.5;
+  }
+  .conflict-card b{color:var(--rust-deep)}
+  .conflict-opts{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .conflict-btn{
+    padding:6px 12px;border:1.5px solid var(--ink);background:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;transition:.15s;
+  }
+  .conflict-btn:hover{background:var(--ink);color:var(--cream)}
+  .conflict-btn.primary{background:var(--rust);color:#fff;border-color:var(--rust)}
+  .conflict-btn.primary:hover{background:var(--rust-deep);border-color:var(--rust-deep)}
+
+  /* ============ ITEM DRAWER ============ */
+  .item-drawer{
+    position:absolute;bottom:0;left:0;right:0;z-index:300;
+    background:var(--cream);border-top:2px solid var(--teal);
+    transform:translateY(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);
+  }
+  .item-drawer.open{transform:translateY(0)}
+  .drawer-head{
+    display:flex;align-items:center;gap:8px;padding:8px 14px 0;
+  }
+  .drawer-icon{font-size:11px;color:var(--teal);font-family:'Space Mono',monospace;font-weight:700;letter-spacing:.05em}
+  .drawer-label{flex:1;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+  .drawer-close{background:none;border:none;cursor:pointer;font-size:15px;color:var(--slate);padding:2px 4px;line-height:1}
+  .drawer-close:hover{color:var(--rust)}
+  .drawer-row{display:flex;gap:0;padding:8px 14px 12px;align-items:flex-end}
+  .drawer-input{
+    flex:1;border:1.5px solid var(--ink);border-right:none;background:#fff;
+    padding:8px 10px;font-family:'Archivo';font-size:13px;resize:none;
+    min-height:42px;max-height:100px;line-height:1.4;color:var(--ink);
+  }
+  .drawer-input:focus{outline:none;box-shadow:inset 0 0 0 1px var(--teal)}
+  .drawer-send{
+    padding:0 14px;background:var(--teal);color:#fff;border:1.5px solid var(--ink);
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;
+    align-self:stretch;min-width:54px;transition:.15s;
+  }
+  .drawer-send:hover{background:#235555}
+  .drawer-send:disabled{background:var(--line);color:var(--slate);cursor:wait}
+  .drawer-status{padding:0 14px 8px;font-size:12px;color:var(--slate);display:none}
+  .drawer-status.show{display:block}
+  .drawer-status.ok{color:var(--sage)}
+  .drawer-status.err{color:var(--rust)}
 
   @media(max-width:820px){
     .app{grid-template-columns:1fr;grid-template-rows:50vh 50vh}
@@ -434,6 +477,20 @@
 
     <div class="saver" id="saver"><span class="pulse"></span> 자동 저장됨</div>
     <button class="reset" id="reset">초기화</button>
+
+    <!-- 일정 항목 컨텍스트 드로어 -->
+    <div class="item-drawer" id="itemDrawer">
+      <div class="drawer-head">
+        <span class="drawer-icon">✦ AI</span>
+        <span class="drawer-label" id="drawerLabel"></span>
+        <button class="drawer-close" id="drawerClose">✕</button>
+      </div>
+      <div class="drawer-row">
+        <textarea class="drawer-input" id="drawerInput" rows="2" placeholder="이 일정에 대해 자유롭게 요청하세요..."></textarea>
+        <button class="drawer-send" id="drawerSend">전송</button>
+      </div>
+      <div class="drawer-status" id="drawerStatus"></div>
+    </div>
   </aside>
 
   <!-- MAP -->
@@ -1051,17 +1108,20 @@ function renderPlan(){
         togglePlanSel(di,ii,coords.lat,coords.lng,it.title,dot);
       });
 
-      // 행 클릭 → 지도 이동
+      // 행 클릭 → 지도 이동 + 드로어 열기
       row.addEventListener('click', e=>{
         if(e.target.matches('[contenteditable],[contenteditable] *,.item-x,.item-sel')) return;
-        if(!coords) return;
-        map.flyTo([coords.lat,coords.lng],15,{duration:.8});
-        // 해당 핀 팝업 열기
-        const pinIdx = planPinLayer.findIndex(m=>{
-          const ll=m.getLatLng();
-          return Math.abs(ll.lat-coords.lat)<0.0001&&Math.abs(ll.lng-coords.lng)<0.0001;
-        });
-        if(pinIdx>=0) planPinLayer[pinIdx].openPopup();
+        // 지도 이동 (좌표 있을 때)
+        if(coords){
+          map.flyTo([coords.lat,coords.lng],15,{duration:.8});
+          const pinIdx = planPinLayer.findIndex(m=>{
+            const ll=m.getLatLng();
+            return Math.abs(ll.lat-coords.lat)<0.0001&&Math.abs(ll.lng-coords.lng)<0.0001;
+          });
+          if(pinIdx>=0) planPinLayer[pinIdx].openPopup();
+        }
+        // 드로어 열기
+        openDrawer(di, ii, it.title);
       });
 
       body.appendChild(row);
@@ -1305,19 +1365,19 @@ async function extractPlace(rawText){
   if(known){ EXTRACT_CACHE[rawText]=known; return {...known}; }
 
   const districtList = DISTRICTS.map(d=>`${d.key}: ${d.name} (${d.desc})`).join('\n');
-  const sys = `너는 코펜하겐 여행 일정 도우미다. 사용자가 입력한 장소명/설명/URL에서 정보를 추출해 JSON만 출력한다. 마크다운·설명 금지.
-코펜하겐 8개 디자인 지구:
+  const sys = `You are a Copenhagen travel assistant. Extract place/event info from user input (Korean or English) and output ONLY JSON — no markdown, no explanation.
+Copenhagen 8 design districts:
 ${districtList}
 
-추출 규칙:
-- title: 장소/이벤트 이름 (한국어 또는 원어, 간결하게)
-- lat,lng: 알고 있으면 코펜하겐 내 좌표(숫자). 모르면 null
-- districtKey: 위 8개 중 가장 가까운/관련된 지구의 key. 판단 불가 시 null
-- isFestival: 3 Days of Design 페스티벌(6/10~12) 관련 쇼룸/전시/토크면 true, 일반 관광지/미술관/식당이면 false
-- preferTime: 명시된 시간 있으면 "HH:MM", 없으면 null
-- note: 한 줄 메모(특징/주소힌트). 없으면 ""
-URL이 주어지면 URL과 도메인/슬러그에서 추론한다. 정보가 부족하면 합리적으로 추정하되 모르면 null을 쓴다.
-출력 형식: {"title":"","lat":null,"lng":null,"districtKey":null,"isFestival":false,"preferTime":null,"note":""}`;
+Rules:
+- title: place/event name (keep original language or translate naturally, be concise)
+- lat,lng: Copenhagen coordinates if known (numbers), else null
+- districtKey: closest/most relevant district key from the 8 above, null if unclear
+- isFestival: true if related to 3 Days of Design festival (6/10~12) showrooms/exhibitions/talks, false for general sights/restaurants
+- preferTime: explicit time → "HH:MM", else null
+- note: one-line memo (feature/address hint), "" if none
+For URLs, infer from domain/slug. Make reasonable guesses; use null when truly unknown.
+Output format: {"title":"","lat":null,"lng":null,"districtKey":null,"isFestival":false,"preferTime":null,"note":""}`;
 
   let txt;
   if(ON_CLAUDE){
@@ -1350,130 +1410,241 @@ URL이 주어지면 URL과 도메인/슬러그에서 추론한다. 정보가 부
 function renderAdd(){
   const el=document.getElementById('scroll');
   el.innerHTML=`<div class="add-wrap">
-    <h3>가고 싶은 곳 추가</h3>
-    <p class="lead">장소·전시·식당 이름을 적거나 링크(URL)를 붙여넣으면, 위치와 성격을 분석해 <b>가장 적합한 날과 시간대</b>에 자동으로 일정에 끼워 넣습니다. 같은 지구는 묶고, 페스티벌 프로그램은 6/10~12에 배치합니다.</p>
+    <h3>장소 추가 · 일정 수정</h3>
+    <p class="lead">장소명·링크를 입력하면 최적 일정에 추가하고, 수정 요청을 입력하면 일정을 업데이트합니다.<br><b>한국어·영어 모두 가능해요.</b></p>
 
-    <label class="field-label">장소 / 프로그램 / 링크</label>
-    <textarea class="add-input" id="addInput" placeholder="예) Gubi 쇼룸&#10;예) Noma 레스토랑&#10;예) https://www.3daysofdesign.dk/..."></textarea>
+    <label class="field-label">장소 / 수정 요청 / 링크</label>
+    <textarea class="add-input" id="addInput" placeholder="예) Hay House 플래그십 스토어&#10;예) Add Noma restaurant to the schedule&#10;예) 6/11 일정에서 Islands Brygge 시간을 오후 2시로 바꿔줘&#10;예) https://www.3daysofdesign.dk/..."></textarea>
 
     <div class="quick">
-      <button data-q="Designmuseum Danmark 특별전">디자인뮤지엄 특별전</button>
-      <button data-q="Hay House 플래그십 스토어">Hay House</button>
+      <button data-q="Designmuseum Danmark">디자인뮤지엄</button>
+      <button data-q="Hay House flagship store">Hay House</button>
       <button data-q="Tivoli Gardens">티볼리</button>
-      <button data-q="Reffen 스트리트푸드 마켓">Reffen 푸드마켓</button>
+      <button data-q="Reffen street food market">Reffen</button>
+      <button data-q="Fritz Hansen showroom">Fritz Hansen</button>
+      <button data-q="Nyhavn 운하 산책">뉘하운</button>
     </div>
 
-    <button class="add-btn" id="addBtn">＋ 분석해서 일정에 추가</button>
-    <p class="hint">수기 입력과 링크 모두 가능합니다. 시간이 명시돼 있으면 그 시간에, 없으면 해당 날의 빈 시간대에 배치됩니다. 추가 후 일정 탭에서 시간·메모를 자유롭게 수정할 수 있어요.</p>
+    <button class="add-btn" id="addBtn">✦ 분석해서 반영하기</button>
+    <p class="hint">장소 추가: 이름·링크 입력 → 최적 날짜/시간에 자동 배치 (충돌 시 선택 카드 표시)<br>일정 수정: "~바꿔줘", "change/move/delete" 등 수정 의도 입력 → 전체 일정 업데이트</p>
 
-    <div class="status" id="addStatus"></div>
-
-    <div class="edit-wrap">
-      <h3>AI 일정 수정</h3>
-      <p class="lead">현재 일정 전체를 보고 자연어로 수정 요청을 하면 AI가 분석해서 반영합니다.<br>예) "6/10 오후 3시에 Hay House 방문 추가해줘" · "SALU 다이닝 메모에 QR코드 필요 추가해줘"</p>
-      <textarea class="add-input" id="editInput" placeholder="수정하고 싶은 내용을 자유롭게 입력하세요..." style="min-height:72px"></textarea>
-      <button class="add-btn" id="editBtn" style="background:var(--teal)">✦ AI로 일정 수정</button>
-      <div class="status" id="editStatus"></div>
-    </div>
+    <div id="addStatus"></div>
   </div>`;
 
   el.querySelectorAll('.quick button').forEach(b=>{
     b.addEventListener('click',()=>{ document.getElementById('addInput').value=b.dataset.q; });
   });
-  document.getElementById('addBtn').addEventListener('click',runAdd);
-  document.getElementById('editBtn').addEventListener('click',runPlanEdit);
+  document.getElementById('addBtn').addEventListener('click',runSmartAdd);
+  document.getElementById('addInput').addEventListener('keydown', e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); runSmartAdd(); }
+  });
 }
 
-async function runAdd(){
-  const input=document.getElementById('addInput');
-  const btn=document.getElementById('addBtn');
-  const st=document.getElementById('addStatus');
-  const raw=input.value.trim();
-  if(!raw){ input.focus(); return; }
-  btn.disabled=true; btn.textContent='분석 중...';
-  st.className='status show'; st.innerHTML='<span class="spin"></span> 위치와 성격을 분석하고 있어요...';
-  try{
-    const place=await extractPlace(raw);
-    if(!place.title) place.title=raw.slice(0,40);
-    const result=placeOptimally(place);
-    await savePlan();
-    addUserMarker(place);
-    const distName=result.districtKey?(DISTRICTS.find(d=>d.key===result.districtKey)?.name):'지구 미지정';
-    st.className='status show';
-    st.innerHTML=`<b>✓ "${place.title}"</b> 추가 완료!
-      <div class="placed">→ <b>${result.dateLabel}</b> · ${place.isFestival?'페스티벌':'자유'} · ${distName}</div>
-      <div class="placed" style="opacity:.7">배치 근거: ${result.reason}</div>`;
-    input.value='';
-    if(place.lat){ map.flyTo([place.lat,place.lng],14,{duration:1}); }
-  }catch(e){
-    st.className='status show err';
-    st.innerHTML=`분석에 실패했어요 (${e.message}). 장소 이름을 더 구체적으로 적거나 다시 시도해 주세요. 직접 일정 탭에서 "+ 일정 추가"로 넣을 수도 있습니다.`;
-  }finally{
-    btn.disabled=false; btn.textContent='＋ 분석해서 일정에 추가';
-  }
+/* 입력 의도 분류: 장소추가 vs 일정수정 */
+function classifyIntent(raw){
+  const modifyKw = /바꿔|수정|변경|삭제|이동|추가해줘|넣어줘|옮겨|고쳐|change|move|delete|update|remove|modify|reschedule|shift|cancel/i;
+  return modifyKw.test(raw) ? 'modify' : 'add';
 }
 
-async function runPlanEdit(){
-  const input = document.getElementById('editInput');
-  const btn = document.getElementById('editBtn');
-  const st = document.getElementById('editStatus');
+/* 충돌 감지: 같은 날 같은 시간대(±90분)에 항목이 있는지 */
+function detectConflict(di, newTime){
+  if(!newTime) return null;
+  const newMin = timeToMin(newTime);
+  if(newMin>=9999) return null;
+  return plan[di].items.find(it=>{
+    const m = timeToMin(it.time);
+    return m<9999 && Math.abs(m-newMin)<=90;
+  }) || null;
+}
+
+/* 충돌 카드 표시 */
+function showConflictCard(st, place, result, conflictItem){
+  const distName = result.districtKey?(DISTRICTS.find(d=>d.key===result.districtKey)?.name||''):'';
+  st.innerHTML=`
+    <div class="conflict-card">
+      <b>⚠ 일정 충돌</b><br>
+      <b>${plan[result.day].date}</b> ${plan[result.day].items[0]?'':''}에 이미
+      <b>"${conflictItem.title}" (${conflictItem.time})</b>이 있어요.<br>
+      "${place.title}"을 어떻게 배치할까요?
+      <div class="conflict-opts">
+        <button class="conflict-btn primary" id="cfAddAnyway">이 날 그대로 추가</button>
+        <button class="conflict-btn" id="cfPickDay">다른 날 선택 ▾</button>
+        <button class="conflict-btn" id="cfCancel">취소</button>
+      </div>
+      <div id="cfDayPicker" style="display:none;margin-top:8px">
+        <select style="width:100%;padding:6px;border:1.5px solid var(--ink);font-family:'Archivo';font-size:13px">
+          ${plan.map((d,i)=>`<option value="${i}">${d.date} · ${d.tag}</option>`).join('')}
+        </select>
+        <button class="conflict-btn primary" style="margin-top:6px;width:100%" id="cfConfirmDay">이 날에 추가</button>
+      </div>
+    </div>`;
+
+  st.querySelector('#cfAddAnyway').onclick = async()=>{
+    plan[result.day].items.push(result._item);
+    sortDayByTime(result.day);
+    await savePlan(); addUserMarker(place);
+    if(place.lat) map.flyTo([place.lat,place.lng],14,{duration:1});
+    st.innerHTML=`<div class="status show"><b>✓ "${place.title}"</b> 추가 완료! → <b>${plan[result.day].date}</b></div>`;
+  };
+  st.querySelector('#cfPickDay').onclick = ()=>{
+    const picker = st.querySelector('#cfDayPicker');
+    picker.style.display = picker.style.display==='none'?'block':'none';
+  };
+  st.querySelector('#cfConfirmDay').onclick = async()=>{
+    const sel = st.querySelector('select');
+    const di = +sel.value;
+    result._item.time = suggestTime(di);
+    plan[di].items.push(result._item);
+    sortDayByTime(di);
+    await savePlan(); addUserMarker(place);
+    if(place.lat) map.flyTo([place.lat,place.lng],14,{duration:1});
+    st.innerHTML=`<div class="status show"><b>✓ "${place.title}"</b> → <b>${plan[di].date}</b>에 추가됐어요!</div>`;
+  };
+  st.querySelector('#cfCancel').onclick = ()=>{ st.innerHTML=''; };
+}
+
+async function runSmartAdd(){
+  const input = document.getElementById('addInput');
+  const btn = document.getElementById('addBtn');
+  const st = document.getElementById('addStatus');
   const raw = input.value.trim();
   if(!raw){ input.focus(); return; }
 
   btn.disabled=true; btn.textContent='분석 중...';
-  st.className='status show'; st.innerHTML='<span class="spin"></span> 일정을 분석하고 수정 중이에요...';
-
-  const sys = `너는 코펜하겐 여행 일정 편집 AI다. 사용자의 현재 일정 JSON과 수정 요청을 받아, 수정된 전체 plan JSON 배열만 출력한다. 마크다운·설명 절대 금지. JSON만 출력.
-규칙:
-- _fixed:true 항목은 절대 삭제하지 않는다
-- _user, _fixed, _lat, _lng, _dk 등 내부 필드는 최대한 보존한다
-- 시간은 "HH:MM" 형식 또는 기존 형식 유지
-- 새 항목 추가 시 해당 날 시간순 정렬`;
-
-  const planJson = JSON.stringify(plan.map(day=>({
-    date:day.date, tag:day.tag, fest:day.fest,
-    items:day.items.map(it=>({
-      time:it.time, title:it.title, note:it.note, dist:it.dist,
-      _fixed:it._fixed||undefined, _user:it._user||undefined,
-      _lat:it._lat||undefined, _lng:it._lng||undefined, _dk:it._dk||undefined
-    }))
-  })));
-
-  const userMsg = `현재 일정:\n${planJson}\n\n수정 요청: ${raw}`;
+  st.innerHTML=`<div class="status show"><span class="spin"></span> 분석 중이에요...</div>`;
 
   try{
-    const resp = await fetch('/api/extract',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({system:sys, input:userMsg, max_tokens:4000})
-    });
+    const intent = classifyIntent(raw);
+
+    if(intent==='modify'){
+      // 일정 수정 모드
+      st.innerHTML=`<div class="status show"><span class="spin"></span> 일정을 수정하고 있어요...</div>`;
+      const sys = `You are a Copenhagen trip plan editor. Given the current plan JSON and a modification request (Korean or English), output ONLY the updated full plan JSON array. No markdown, no explanation.
+Rules: never delete _fixed:true items; preserve _user,_fixed,_lat,_lng,_dk fields; sort by time after changes.`;
+      const planJson = JSON.stringify(plan.map(day=>({
+        date:day.date,tag:day.tag,fest:day.fest,
+        items:day.items.map(it=>({time:it.time,title:it.title,note:it.note,dist:it.dist,
+          _fixed:it._fixed||undefined,_user:it._user||undefined,
+          _lat:it._lat||undefined,_lng:it._lng||undefined,_dk:it._dk||undefined}))
+      })));
+      const resp = await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({system:sys,input:`Current plan:\n${planJson}\n\nRequest: ${raw}`,max_tokens:4000})});
+      if(!resp.ok) throw new Error('서버 '+resp.status);
+      const data = await resp.json();
+      const txt = (data.text||'').replace(/```json|```/g,'').trim();
+      const updated = JSON.parse(txt);
+      if(!Array.isArray(updated)) throw new Error('형식 오류');
+      updated.forEach((day,di)=>{
+        if(!plan[di]) return;
+        const fixed = plan[di].items.filter(it=>it._fixed);
+        plan[di].items = day.items;
+        fixed.forEach(fi=>{ if(!plan[di].items.some(it=>it.title===fi.title)) plan[di].items.push(fi); });
+        sortDayByTime(di);
+      });
+      await savePlan();
+      input.value='';
+      st.innerHTML=`<div class="status show"><b>✓ 일정이 수정됐어요!</b> 일정 탭에서 확인하세요.</div>`;
+      if(activeTab==='plan') renderPlan();
+
+    } else {
+      // 장소 추가 모드
+      const place = await extractPlace(raw);
+      if(!place.title) place.title=raw.slice(0,40);
+      const result = placeOptimally(place);
+      // _item을 result에 저장 (충돌 카드에서 재사용)
+      result._item = plan[result.day].items.pop(); // placeOptimally가 이미 push했으므로 꺼냄
+
+      const conflict = detectConflict(result.day, result._item.time);
+      if(conflict){
+        st.innerHTML='';
+        showConflictCard(st, place, result, conflict);
+        input.value='';
+      } else {
+        // 충돌 없음 → 바로 추가
+        plan[result.day].items.push(result._item);
+        sortDayByTime(result.day);
+        await savePlan();
+        addUserMarker(place);
+        const distName = result.districtKey?(DISTRICTS.find(d=>d.key===result.districtKey)?.name||''):'';
+        input.value='';
+        st.innerHTML=`<div class="status show">
+          <b>✓ "${place.title}"</b> 추가 완료!
+          <div class="placed">→ <b>${result.dateLabel}</b>${distName?' · '+distName:''}</div>
+          <div class="placed" style="opacity:.7">배치 근거: ${result.reason}</div>
+        </div>`;
+        if(place.lat) map.flyTo([place.lat,place.lng],14,{duration:1});
+      }
+    }
+  } catch(e){
+    st.innerHTML=`<div class="status show err">실패했어요 (${e.message}). 더 구체적으로 입력하거나 다시 시도해 주세요.</div>`;
+  } finally{
+    btn.disabled=false; btn.textContent='✦ 분석해서 반영하기';
+  }
+}
+
+/* ---------- ITEM DRAWER ---------- */
+let drawerContext = null; // {di, ii}
+
+function openDrawer(di, ii, title){
+  drawerContext = {di, ii};
+  const drawer = document.getElementById('itemDrawer');
+  document.getElementById('drawerLabel').textContent = title;
+  document.getElementById('drawerInput').value = '';
+  document.getElementById('drawerStatus').className = 'drawer-status';
+  drawer.classList.add('open');
+  setTimeout(()=>document.getElementById('drawerInput').focus(), 250);
+}
+
+function closeDrawer(){
+  document.getElementById('itemDrawer').classList.remove('open');
+  drawerContext = null;
+}
+
+async function sendDrawerMsg(){
+  if(!drawerContext) return;
+  const input = document.getElementById('drawerInput');
+  const btn = document.getElementById('drawerSend');
+  const st = document.getElementById('drawerStatus');
+  const raw = input.value.trim();
+  if(!raw) return;
+
+  const {di, ii} = drawerContext;
+  const item = plan[di]?.items[ii];
+  if(!item) return;
+
+  btn.disabled = true; btn.textContent = '...';
+  st.className = 'drawer-status show';
+  st.textContent = '분석 중...';
+
+  const sys = `You are a Copenhagen trip assistant. The user has a specific schedule item and a request about it. Output ONLY a JSON object with the updated item fields to apply. No markdown, no explanation.
+Updatable fields: time (string), title (string), note (string), dist (string).
+Example output: {"time":"14:00","note":"새로운 메모"}
+Only include fields that should change.`;
+
+  const itemCtx = `Item: ${JSON.stringify({time:item.time,title:item.title,note:item.note,dist:item.dist})}
+Day: ${plan[di].date} (${plan[di].tag})
+Request: ${raw}`;
+
+  try{
+    const resp = await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({system:sys, input:itemCtx, max_tokens:300})});
     if(!resp.ok) throw new Error('서버 '+resp.status);
     const data = await resp.json();
-    let txt = (data.text||'').trim().replace(/```json|```/g,'').trim();
-    const updated = JSON.parse(txt);
-    if(!Array.isArray(updated)) throw new Error('형식 오류');
-
-    // 기존 plan에서 _fixed 항목 보존하며 병합
-    updated.forEach((day,di)=>{
-      if(!plan[di]) return;
-      // _fixed 항목 유실 방지
-      const fixedItems = plan[di].items.filter(it=>it._fixed);
-      plan[di].items = day.items;
-      fixedItems.forEach(fi=>{
-        if(!plan[di].items.some(it=>it.title===fi.title)) plan[di].items.push(fi);
-      });
-      sortDayByTime(di);
-    });
-
+    const txt = (data.text||'').replace(/```json|```/g,'').trim();
+    const changes = JSON.parse(txt);
+    Object.assign(plan[di].items[ii], changes);
+    sortDayByTime(di);
     await savePlan();
     input.value='';
-    st.className='status show';
-    st.innerHTML='<b>✓ 일정이 수정됐어요!</b> 일정 탭에서 확인하세요.';
+    st.className='drawer-status show ok';
+    st.textContent='✓ 수정됐어요!';
     if(activeTab==='plan') renderPlan();
+    setTimeout(closeDrawer, 1200);
   }catch(e){
-    st.className='status show err';
-    st.innerHTML=`수정에 실패했어요 (${e.message}). 더 구체적으로 요청하거나 다시 시도해 주세요.`;
+    st.className='drawer-status show err';
+    st.textContent=`실패 (${e.message})`;
   }finally{
-    btn.disabled=false; btn.textContent='✦ AI로 일정 수정';
+    btn.disabled=false; btn.textContent='전송';
   }
 }
 
@@ -1509,6 +1680,13 @@ function setTab(t){
   }
 }
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+
+// 드로어 이벤트
+document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.getElementById('drawerSend').addEventListener('click', sendDrawerMsg);
+document.getElementById('drawerInput').addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); sendDrawerMsg(); }
+});
 
 document.getElementById('reset').addEventListener('click',async()=>{
   if(confirm('일정을 초기 상태로 되돌릴까요? 편집한 내용이 사라집니다.')){
