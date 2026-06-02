@@ -803,7 +803,11 @@ async function doLogin(user, password){
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({user,password})
   });
-  if(!r.ok){ const d=await r.json(); throw new Error(d.error||'로그인 실패'); }
+  if(!r.ok){
+    let msg='서버 오류가 발생했어요';
+    try{ const d=await r.json(); msg=d.error||msg; }catch{}
+    throw new Error(msg);
+  }
   const {token} = await r.json();
   saveAuth(user, token);
 }
