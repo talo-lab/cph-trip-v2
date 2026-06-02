@@ -700,23 +700,41 @@ const DEFAULT_PLAN = [
 /* ---------- STATE / PERSISTENCE ---------- */
 const STORE_KEY = 'cph_design_plan_v4';
 let plan;
+
+// window.storage(Claude Code 전용) + localStorage 듀얼 저장
 async function loadPlan(){
+  let loaded = null;
   try{
-    const r = await window.storage.get(STORE_KEY);
-    plan = r && r.value ? JSON.parse(r.value) : structuredClone(DEFAULT_PLAN);
-  }catch(e){
-    plan = structuredClone(DEFAULT_PLAN);
-  }
+    // 1순위: window.storage (Claude Code 환경)
+    if(typeof window.storage !== 'undefined'){
+      const r = await window.storage.get(STORE_KEY);
+      if(r && r.value) loaded = JSON.parse(r.value);
+    }
+  }catch(e){}
+  try{
+    // 2순위: localStorage (Vercel 배포 환경 포함 모든 브라우저)
+    if(!loaded){
+      const raw = localStorage.getItem(STORE_KEY);
+      if(raw) loaded = JSON.parse(raw);
+    }
+  }catch(e){}
+  plan = loaded || structuredClone(DEFAULT_PLAN);
 }
+
 let saveTimer;
 async function savePlan(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async()=>{
+    const json = JSON.stringify(plan);
+    // localStorage: 동기 저장 (항상 작동)
+    try{ localStorage.setItem(STORE_KEY, json); }catch(e){}
+    // window.storage: 있으면 추가 저장
     try{
-      await window.storage.set(STORE_KEY, JSON.stringify(plan), false);
-      const s=document.getElementById('saver'); s.classList.add('show');
-      setTimeout(()=>s.classList.remove('show'),1400);
+      if(typeof window.storage !== 'undefined')
+        await window.storage.set(STORE_KEY, json, false);
     }catch(e){}
+    const s=document.getElementById('saver');
+    if(s){ s.classList.add('show'); setTimeout(()=>s.classList.remove('show'),1400); }
   },400);
 }
 
