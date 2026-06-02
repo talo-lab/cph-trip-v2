@@ -362,6 +362,30 @@
   .pin span{transform:rotate(45deg);font-family:'Space Mono',monospace;font-size:11px;font-weight:700}
   .pin.home{background:var(--ink);width:30px;height:30px}
   .pin.home span{color:var(--ochre);font-size:14px}
+
+  /* ── 장소별 핀 (카테고리 아이콘 + 날짜 색상) ── */
+  .plan-pin{
+    border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+    display:flex;align-items:center;justify-content:center;
+    border:2px solid rgba(0,0,0,.35);
+    box-shadow:2px 3px 5px rgba(0,0,0,.3);
+    width:30px;height:30px;
+  }
+  .plan-pin span{transform:rotate(45deg);font-size:14px;line-height:1}
+
+  /* ── 지구 라벨 ── */
+  .dist-lbl{
+    font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;
+    padding:2px 6px;border:1.5px solid;border-radius:2px;
+    background:rgba(255,255,255,.82);white-space:nowrap;
+    box-shadow:1px 1px 3px rgba(0,0,0,.15);
+    pointer-events:none;
+  }
+  .leaflet-tooltip.dist-tip{
+    background:rgba(255,255,255,.9);border:none;box-shadow:none;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 7px;
+    border-radius:2px;
+  }
   .leg-dot{display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--ochre);line-height:1}
   .leaflet-popup-content-wrapper{border-radius:0;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--shadow)}
   .leaflet-popup-content{margin:12px 16px;font-family:'Archivo'}
@@ -686,19 +710,18 @@ function clearPlanPins(){
 
 function renderPlanMarkers(di){
   clearPlanPins();
-  let num=0;
+  const dayColor = DAY_COLORS[di]||'#c8492a';
   plan[di].items.forEach((it)=>{
     const coords = getItemCoords(it);
     if(!coords) return;
-    num++;
-    const color = it._fixed?'#2f6b6b':it._user?'#d99021':'#c8492a';
+    const catIcon = getCategoryIcon(it);
     const icon = L.divIcon({
       className:'',
-      html:`<div class="pin" style="background:${color};width:22px;height:22px;font-size:10px"><span>${num}</span></div>`,
-      iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-24]
+      html:`<div class="plan-pin" style="background:${dayColor}"><span>${catIcon}</span></div>`,
+      iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-32]
     });
     const m = L.marker([coords.lat,coords.lng],{icon}).addTo(map);
-    m.bindPopup(`<div class="pop-name">${it.title}</div><div class="pop-desc">${it.note||it.time||''}</div>`);
+    m.bindPopup(`<div class="pop-name">${it.title}</div><div class="pop-desc">${it.time||''}${it.note?' · '+it.note:''}<br><b style="color:${dayColor}">${plan[di].date}</b></div>`);
     planPinLayer.push(m);
   });
 }
@@ -1988,7 +2011,7 @@ Rules: never delete _fixed:true items; preserve _user,_fixed,_lat,_lng,_dk field
         plan[result.day].items.push(result._item);
         sortDayByTime(result.day);
         await savePlan();
-        addUserMarker(place);
+        addUserMarker(place, result.day);
         const distName = result.districtKey?(DISTRICTS.find(d=>d.key===result.districtKey)?.name||''):'';
         input.value='';
         st.innerHTML=`<div class="status show">
@@ -2097,10 +2120,12 @@ User request: ${raw}`;
 
 // 사용자 추가 장소 지도 마커
 const userMarkers=[];
-function addUserMarker(place){
+function addUserMarker(place, di){
   if(!place.lat||!place.lng) return;
-  const icon=L.divIcon({className:'',html:`<div class="pin" style="background:var(--ochre)"><span>+</span></div>`,iconSize:[26,26],iconAnchor:[13,26],popupAnchor:[0,-26]});
-  const m=L.marker([place.lat,place.lng],{icon}).addTo(map);
+  const color = di!=null ? DAY_COLORS[di]||'#d99021' : '#d99021';
+  const icon = getCategoryIcon({title:place.title,note:place.note||''});
+  const mkIcon=L.divIcon({className:'',html:`<div class="plan-pin" style="background:${color}"><span>${icon}</span></div>`,iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-32]});
+  const m=L.marker([place.lat,place.lng],{icon:mkIcon}).addTo(map);
   m.bindPopup(`<div class="pop-name">${place.title}</div><div class="pop-desc">${place.note||'사용자 추가 장소'}</div>`);
   userMarkers.push(m);
 }
@@ -2145,43 +2170,105 @@ document.getElementById('reset').addEventListener('click',async()=>{
 });
 
 /* ---------- MAP ---------- */
+// 날짜별 핀 색상
+const DAY_COLORS = [
+  '#7a7a7a', // 0: 6/8 출발
+  '#9b7ab5', // 1: 6/9 도착
+  '#c8492a', // 2: 6/10 페스티벌 1
+  '#2f6b6b', // 3: 6/11 페스티벌 2
+  '#d99021', // 4: 6/12 페스티벌 3
+  '#5d7456', // 5: 6/13 자유
+  '#4a7a9b', // 6: 6/14 근교
+  '#8b6a2e', // 7: 6/15 자유
+  '#7a5a8b', // 8: 6/16 귀국
+];
+const DAY_LABELS = ['6/8 출발','6/9 도착','6/10 Festival①','6/11 Festival②','6/12 Festival③','6/13 자유','6/14 근교','6/15 자유','6/16 귀국'];
+
+// 카테고리 아이콘 추론
+function getCategoryIcon(it){
+  const t=(it.title||'').toLowerCase(), n=(it.note||it.dist||'').toLowerCase();
+  const all=t+' '+n;
+  if(/icn|cph→|ams|lhr|출발|직항|항공편|sk\d|ke\d|kl\d/.test(all)) return '✈️';
+  if(it._fixed && /salu|다이닝|dining/.test(all)) return '🍽';
+  if(it._fixed) return '🔒';
+  if(/breakfast|brunch|lunch|dinner|dining|café|coffee|식사|다이닝|점심|저녁|아침|음식|레스토랑|restaurant|bar|eating/.test(all)) return '🍽';
+  if(/museum|전시|exhibition|gallery|오프닝|opening|lounge|pavilion/.test(all)) return '🏛';
+  if(/talk|panel|토크|세미나|symposium|discussion|lecture|강연/.test(all)) return '💬';
+  if(/workshop|워크숍|making|crafting/.test(all)) return '✂️';
+  if(/yoga|wellness|breathwork|요가|웰니스|meditation/.test(all)) return '🧘';
+  if(/walk|tour|투어|산책|stroll|hike/.test(all)) return '🚶';
+  if(/launch|런칭|grand open/.test(all)) return '🚀';
+  if(/hotel|airbnb|체크인|숙소|accommodation/.test(all)) return '🏠';
+  return '📍';
+}
+
 const map = L.map('map',{zoomControl:true,attributionControl:false}).setView([55.685,12.59],13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
 const markers={};
-DISTRICTS.forEach((d,i)=>{
-  const icon=L.divIcon({className:'',html:`<div class="pin" style="background:${d.color}"><span>${i+1}</span></div>`,iconSize:[26,26],iconAnchor:[13,26],popupAnchor:[0,-26]});
-  const m=L.marker([d.lat,d.lng],{icon}).addTo(map);
+
+// ── 지구 배경 레이어 (원형 영역 + 라벨)
+const DISTRICT_RADII = {kongens:360,frederik:420,nordhavn:600,islands:400,christ:400,holmen:420,kultur:310,rosen:340};
+DISTRICTS.forEach((d)=>{
+  // 반투명 배경 원
+  L.circle([d.lat,d.lng],{
+    radius: DISTRICT_RADII[d.key]||380,
+    color:d.color, weight:1.5, opacity:.45,
+    fillColor:d.color, fillOpacity:.07,
+    interactive:false
+  }).addTo(map);
+
+  // 지구명 라벨 마커 (클릭 가능)
+  const lbl = L.divIcon({
+    className:'',
+    html:`<div class="dist-lbl" style="border-color:${d.color};color:${d.color}">${d.name}</div>`,
+    iconAnchor:[0,0]
+  });
+  const m = L.marker([d.lat+0.003,d.lng],{icon:lbl, zIndexOffset:-200}).addTo(map);
   m.bindPopup(`<div class="pop-name">${d.name}</div><div class="pop-desc">${d.desc}<br><b style="color:${d.color}">${d.when}</b></div>`);
   markers[d.key]=m;
 });
 
-// 숙소 마커 (별 모양 강조)
+// 숙소 마커
 const stayIcon=L.divIcon({className:'',html:`<div class="pin home"><span>★</span></div>`,iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-30]});
 const stayMarker=L.marker([STAY.lat,STAY.lng],{icon:stayIcon}).addTo(map);
-stayMarker.bindPopup(`<div class="pop-name">🏠 ${STAY.name}</div><div class="pop-desc">${STAY.desc}<br><b style="color:var(--ink)">${STAY.meta}</b></div>`);
+stayMarker.bindPopup(`<div class="pop-name">🏠 ${STAY.name}</div><div class="pop-desc">${STAY.desc}<br><b>${STAY.meta}</b></div>`);
 markers['stay']=stayMarker;
 
-// 고정 예약: Food & Music with SALU (Folkehuset Absalon)
-const saluIcon=L.divIcon({className:'',html:`<div class="pin" style="background:var(--teal)"><span>🍽</span></div>`,iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-28]});
+// SALU 고정 마커
+const saluIcon=L.divIcon({className:'',html:`<div class="plan-pin" style="background:${DAY_COLORS[2]}"><span>🍽</span></div>`,iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-32]});
 const saluMarker=L.marker([55.665398,12.550298],{icon:saluIcon}).addTo(map);
-saluMarker.bindPopup(`<div class="pop-name">🍽 Food & Music with SALU</div><div class="pop-desc">소셜 다이닝 (3명 예약) · 6/10(수) 17:00–20:00<br>Folkehuset Absalon · Sønder Blvd. 73<br><b style="color:var(--teal)">숙소에서 도보권 · QR코드 보유</b></div>`);
+saluMarker.bindPopup(`<div class="pop-name">🍽 Food & Music with SALU</div><div class="pop-desc">소셜 다이닝 (3명 예약) · 6/10(수) 17:00–20:00<br>Folkehuset Absalon · Sønder Blvd. 73</div>`);
 markers['salu']=saluMarker;
-// legend
+
+// ── 범례: 날짜별 색상 + 숙소/SALU
 const leg=document.getElementById('legend');
+leg.innerHTML='';
+
+// 숙소·SALU
 const stayRow=document.createElement('div'); stayRow.className='leg-row';
 stayRow.innerHTML=`<span class="leg-dot" style="background:#1a1714">★</span><b>우리 숙소</b>`;
-stayRow.style.cssText='border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:4px';
-stayRow.addEventListener('click',()=>{map.flyTo([STAY.lat,STAY.lng],15,{duration:1});stayMarker.openPopup()});
+stayRow.style.cssText='border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:5px;cursor:pointer';
+stayRow.onclick=()=>{map.flyTo([STAY.lat,STAY.lng],15,{duration:1});stayMarker.openPopup()};
 leg.appendChild(stayRow);
-const saluRow=document.createElement('div'); saluRow.className='leg-row';
-saluRow.innerHTML=`<span class="leg-dot" style="background:#2f6b6b;color:#fff">🍽</span><b>SALU 다이닝 (6/10)</b>`;
-saluRow.style.cssText='border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:4px';
-saluRow.addEventListener('click',()=>{map.flyTo([55.665398,12.550298],15,{duration:1});saluMarker.openPopup()});
-leg.appendChild(saluRow);
-DISTRICTS.forEach((d,i)=>{
+
+// 날짜별 범례
+DAY_COLORS.forEach((color,i)=>{
   const r=document.createElement('div'); r.className='leg-row';
-  r.innerHTML=`<span class="leg-dot" style="background:${d.color}"></span>${i+1}. ${d.name}`;
-  r.addEventListener('click',()=>{map.flyTo([d.lat,d.lng],14.5,{duration:1});markers[d.key].openPopup()});
+  r.style.cursor='pointer';
+  r.innerHTML=`<span class="leg-dot" style="background:${color}">●</span><span style="font-size:10px">${DAY_LABELS[i]}</span>`;
+  r.onclick=()=>{ currentVisDay=i; updateDayViz(i); setTab('plan'); };
+  leg.appendChild(r);
+});
+
+// 지구 목록 (구분선 후)
+const distHead=document.createElement('div');
+distHead.style.cssText='font-family:Space Mono,monospace;font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.5;padding:6px 0 3px;border-top:1px solid var(--line);margin-top:4px';
+distHead.textContent='8 DISTRICTS';
+leg.appendChild(distHead);
+DISTRICTS.forEach((d,i)=>{
+  const r=document.createElement('div'); r.className='leg-row'; r.style.cursor='pointer';
+  r.innerHTML=`<span class="leg-dot" style="background:${d.color};border-radius:50%"></span><span style="font-size:10px">${i+1}. ${d.name}</span>`;
+  r.onclick=()=>{map.flyTo([d.lat,d.lng],14.5,{duration:1});markers[d.key].openPopup()};
   leg.appendChild(r);
 });
 
