@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,400&family=Space+Mono:wght@400;700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#c8492a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -104,6 +109,9 @@
   .day-num.fest{background:var(--rust)}
   .day-date{font-family:'Fraunces',serif;font-size:19px;font-weight:600}
   .day-tag{font-size:11px;color:var(--slate);font-weight:600;margin-left:auto;text-align:right;line-height:1.2}
+  .day-weather{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--slate);margin-left:6px;white-space:nowrap}
+  .day-weather-icon{font-size:14px}
+  .day-weather-temp{font-family:'Space Mono',monospace;font-size:10px}
   .day-body{padding:4px 24px 16px}
 
   .item{
@@ -434,6 +442,18 @@
   .item-x[disabled]{cursor:default;opacity:.5}
 
   /* ============ PLAN ITEM SELECT (2-item route) ============ */
+  /* ── 진행률 체크 ── */
+  .item-done-cb{width:15px;height:15px;flex-shrink:0;accent-color:var(--sage);cursor:pointer;align-self:center}
+  .item.done .item-title{text-decoration:line-through;opacity:.45}
+  .item.done .item-note{opacity:.35}
+  .day-progress{height:3px;background:var(--line);margin:0 0 0 0}
+  .day-progress-bar{height:100%;background:var(--sage);transition:width .4s ease}
+
+  /* ── 즐겨찾기 ── */
+  .fav-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;flex-shrink:0;transition:.15s}
+  .fav-btn:hover{transform:scale(1.2)}
+  .fest-filter-btn.fav-active{background:#c8492a;color:#fff;border-color:#c8492a}
+
   .item-sel{
     width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);
     flex-shrink:0;cursor:pointer;transition:.15s;align-self:center;background:transparent;
@@ -789,7 +809,48 @@ function showItemRoute(di, ii){
   const st=document.getElementById('drawerStatus');
   if(st && parts.length){
     st.className='drawer-status show ok';
-    st.textContent=parts.join('   ·   ');
+    // 실시간 대중교통 조회 버튼
+    const transitBtn = coords && nextC
+      ? `<button onclick="fetchTransit(${coords.lat},${coords.lng},${nextC.lat},${nextC.lng})" style="margin-left:8px;font-size:9px;font-family:Space Mono,monospace;padding:2px 6px;border:1px solid var(--teal);color:var(--teal);background:none;cursor:pointer">🚌 실시간 경로</button>`
+      : '';
+    st.innerHTML = parts.join('   ·   ') + transitBtn;
+  }
+}
+
+// Rejseplanen 실시간 대중교통 조회
+async function fetchTransit(fromLat, fromLng, toLat, toLng){
+  const st = document.getElementById('drawerStatus');
+  if(st){ st.innerHTML+=' <span style="opacity:.6">조회 중...</span>'; }
+  try{
+    // 출발지 정류장 검색
+    const fromR = await fetch(`/api/transit?type=location&lat=${fromLat}&lng=${fromLng}`);
+    const fromD = await fromR.json();
+    const fromStop = fromD.LocationList?.StopLocation?.[0] || fromD.CoordLocation?.[0];
+
+    // 도착지 정류장 검색
+    const toR = await fetch(`/api/transit?type=location&lat=${toLat}&lng=${toLng}`);
+    const toD = await toR.json();
+    const toStop = toD.LocationList?.StopLocation?.[0] || toD.CoordLocation?.[0];
+
+    if(!fromStop || !toStop) throw new Error('정류장 없음');
+
+    // 경로 조회
+    const tripR = await fetch(`/api/transit?type=trip&originId=${fromStop.id}&destId=${toStop.id}`);
+    const tripD = await tripR.json();
+    const leg = tripD.TripList?.Trip?.[0]?.Leg;
+    const legs = Array.isArray(leg) ? leg : (leg ? [leg] : []);
+
+    if(!legs.length) throw new Error('경로 없음');
+
+    const summary = legs.map(l=>l.name||l.type).join(' → ');
+    const first = legs[0], last = legs[legs.length-1];
+    const dur = first?.Origin?.time && last?.Destination?.time
+      ? ` (${first.Origin.time}~${last.Destination.time})`
+      : '';
+
+    if(st){ st.innerHTML=`🚌 ${fromStop.name} → ${toStop.name}<br><b>${summary}</b>${dur}`; }
+  }catch(e){
+    if(st){ st.innerHTML+=` <span style="color:var(--rust)">조회 실패: ${e.message}</span>`; }
   }
 }
 
@@ -1097,6 +1158,32 @@ function renderFest(){
   wrap.className = 'fest-wrap';
   wrap.style.cssText = 'display:flex;flex-direction:column;height:100%';
 
+  // ── 상단: 새로고침 버튼
+  const topBar = document.createElement('div');
+  topBar.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-bottom:1px solid var(--line);background:rgba(93,116,86,.06)';
+  topBar.innerHTML=`<span style="font-size:11px;color:var(--slate)">공식 행사 데이터 · ${FESTIVAL_EVENTS.length}개 로드됨</span>
+    <button id="festRefreshBtn" style="font-size:10px;font-family:Space Mono,monospace;padding:3px 8px;border:1px solid var(--line);background:none;cursor:pointer;color:var(--sage)">↻ 새로고침</button>`;
+  wrap.appendChild(topBar);
+
+  topBar.querySelector('#festRefreshBtn').onclick = async()=>{
+    const btn = topBar.querySelector('#festRefreshBtn');
+    btn.textContent='불러오는 중...'; btn.disabled=true;
+    try{
+      const r = await fetch('/api/events');
+      const data = await r.json();
+      if(data.source==='live' && data.events?.length>0){
+        const newCount = data.events.filter(e=>!FESTIVAL_EVENTS.some(f=>f.title===e.title)).length;
+        topBar.querySelector('span').textContent = newCount>0
+          ? `✦ 신규 ${newCount}개 이벤트 발견! 공식 사이트에서 확인하세요.`
+          : `최신 상태 · ${data.events.length}개 이벤트`;
+        topBar.querySelector('span').style.color = newCount>0 ? 'var(--rust)' : 'var(--sage)';
+      } else {
+        topBar.querySelector('span').textContent = '현재 하드코딩 데이터가 최신 상태입니다';
+      }
+    }catch(e){ topBar.querySelector('span').textContent = '새로고침 실패 — 나중에 다시 시도해주세요'; }
+    finally{ btn.textContent='↻ 새로고침'; btn.disabled=false; }
+  };
+
   // ── 날짜 필터
   const filters = document.createElement('div');
   filters.className = 'fest-filters';
@@ -1133,6 +1220,14 @@ function renderFest(){
     b.onclick = ()=>{ festDistFilter=d; renderFest(); };
     filters.appendChild(b);
   });
+  // ── 즐겨찾기 필터 버튼
+  const favSep = document.createElement('div'); favSep.style.cssText='width:100%;height:0'; filters.appendChild(favSep);
+  const favBtn = document.createElement('button');
+  favBtn.className = 'fest-filter-btn' + (festFavFilter?' fav-active':'');
+  favBtn.innerHTML = (festFavFilter ? '♥' : '♡') + ' 즐겨찾기';
+  favBtn.onclick = ()=>{ festFavFilter=!festFavFilter; renderFest(); };
+  filters.appendChild(favBtn);
+
   wrap.appendChild(filters);
 
   // ── 이벤트 목록
@@ -1142,7 +1237,8 @@ function renderFest(){
   const filtered = FESTIVAL_EVENTS.filter(e=>
     e.date===festDateFilter &&
     (festCatFilter==='all' || e.category===festCatFilter) &&
-    (festDistFilter==='all' || e.district===festDistFilter)
+    (festDistFilter==='all' || e.district===festDistFilter) &&
+    (!festFavFilter || favorites.has(`fest-${e.date}-${e.title}`))
   );
 
   if(filtered.length===0){
@@ -1156,6 +1252,7 @@ function renderFest(){
     row.className = 'fest-event' + (isChecked?' checked':'');
     const dkColor = districtColor(ev.district);
     const catInfo = FEST_CATEGORIES.find(c=>c.key===ev.category)||FEST_CATEGORIES[0];
+    const isFav = favorites.has(id);
     row.innerHTML = `
       <input type="checkbox" class="fest-cb" ${isChecked?'checked':''}>
       <div class="fest-body">
@@ -1167,7 +1264,8 @@ function renderFest(){
           <span class="fest-dk" style="background:${dkColor}">${ev.district}</span>
         </div>
         <div class="fest-desc">${ev.desc}</div>
-      </div>`;
+      </div>
+      <button class="fav-btn" title="즐겨찾기">${isFav?'♥':'♡'}</button>`;
     const cb = row.querySelector('.fest-cb');
     const titleEl = row.querySelector('.fest-title-link');
 
@@ -1176,6 +1274,15 @@ function renderFest(){
       row.classList.toggle('checked', cb.checked);
       updateFestBar();
     };
+
+    // 즐겨찾기 토글
+    const favBtnEl = row.querySelector('.fav-btn');
+    favBtnEl.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(favorites.has(id)){ favorites.delete(id); favBtnEl.textContent='♡'; }
+      else { favorites.add(id); favBtnEl.textContent='♥'; }
+      saveFavs();
+    });
 
     // 제목 클릭 → 상세 팝업
     titleEl.addEventListener('click', e=>{
@@ -1271,14 +1378,28 @@ function renderPlan(){
   planSelItems = [];
   if(selRouteLayer){ map.removeLayer(selRouteLayer); selRouteLayer=null; }
 
+  // 날씨 비동기 로드 → 렌더 후 삽입
+  fetchWeather().then(wmap=>{
+    if(!wmap) return;
+    document.querySelectorAll('.day-weather-slot').forEach(slot=>{
+      const di = +slot.dataset.di;
+      const w = wmap[di];
+      if(!w) return;
+      slot.innerHTML=`<span class="day-weather-icon">${w.icon}</span><span class="day-weather-temp">${w.max}°/${w.min}°</span>`;
+      slot.title=`${w.label}${w.rain>0?' · 강수 '+w.rain+'mm':''}`;
+    });
+  });
+
   plan.forEach((day,di)=>{
     const d = document.createElement('div'); d.className='day';
     d.innerHTML = `
       <div class="day-head">
         <span class="day-num ${day.fest?'fest':''}">${day.fest?'FEST':'DAY'} ${di}</span>
         <span class="day-date">${day.date}</span>
+        <span class="day-weather day-weather-slot" data-di="${di}"></span>
         <span class="day-tag">${day.tag}</span>
       </div>
+      <div class="day-progress"><div class="day-progress-bar" id="prog-${di}" style="width:0%"></div></div>
       <div class="day-body" id="body-${di}"></div>`;
     el.appendChild(d);
     const body = d.querySelector(`#body-${di}`);
@@ -1296,7 +1417,9 @@ function renderPlan(){
       dot.dataset.selkey = selKey;
       if(!coords) dot.style.visibility='hidden';
 
+      if(it._done) row.classList.add('done');
       row.innerHTML = `
+        <input type="checkbox" class="item-done-cb" ${it._done?'checked':''} title="완료 표시">
         <div class="item-time">${it.time||''}</div>
         <div class="item-main">
           <div class="item-title" contenteditable spellcheck="false">${it.title||''}</div>
@@ -1307,6 +1430,16 @@ function renderPlan(){
         </div>
         <button class="item-x" title="${it._fixed?'고정 일정':'삭제'}" ${it._fixed?'disabled':''}>${it._fixed?'🔒':'×'}</button>`;
       row.insertBefore(dot, row.firstChild);
+
+      // 완료 체크박스
+      const doneCb = row.querySelector('.item-done-cb');
+      doneCb.addEventListener('change', e=>{
+        e.stopPropagation();
+        plan[di].items[ii]._done = doneCb.checked;
+        row.classList.toggle('done', doneCb.checked);
+        savePlan();
+        updateDayProgress(di);
+      });
 
       const t=row.querySelector('.item-title'), n=row.querySelector('.item-note');
       t.addEventListener('input',()=>{plan[di].items[ii].title=t.textContent;savePlan()});
@@ -1358,6 +1491,10 @@ function renderPlan(){
     body.appendChild(add);
   });
 
+  // 진행률 바 초기화
+  plan.forEach((_,di)=>updateDayProgress(di));
+  // 충돌 경고 배너
+  renderConflictBanner(el);
   // 첫 렌더 시 첫 번째 날 핀 표시
   updateDayViz(currentVisDay);
 
@@ -1895,15 +2032,70 @@ function classifyIntent(raw){
   return modifyKw.test(raw) ? 'modify' : 'add';
 }
 
-/* 충돌 감지: 같은 날 같은 시간대(±90분)에 항목이 있는지 */
-function detectConflict(di, newTime){
+/* 충돌 감지: 이동시간 포함한 스마트 충돌 체크 */
+function detectConflict(di, newTime, newCoords){
   if(!newTime) return null;
   const newMin = timeToMin(newTime);
   if(newMin>=9999) return null;
+
   return plan[di].items.find(it=>{
     const m = timeToMin(it.time);
-    return m<9999 && Math.abs(m-newMin)<=90;
+    if(m>=9999) return false;
+    // 기본 겹침 (±60분)
+    const overlap = Math.abs(m - newMin) <= 60;
+    if(overlap) return true;
+    // 이동시간 포함 충돌: 이전 항목 종료 추정 + 이동시간 > 새 항목 시작
+    if(newCoords && newMin > m){
+      const prevCoords = getItemCoords(it);
+      if(prevCoords){
+        const travel = transportBetween(prevCoords, newCoords);
+        // 이전 항목 소요 45분 가정 + 이동시간
+        const prevEnd = m + 45 + travel.mins;
+        if(prevEnd > newMin) return true;
+      }
+    }
+    return false;
   }) || null;
+}
+
+/* 일정 전체 충돌 스캔 */
+function scanAllConflicts(){
+  const results = [];
+  plan.forEach((day, di)=>{
+    const items = day.items;
+    for(let i=0; i<items.length-1; i++){
+      const a = items[i], b = items[i+1];
+      const tA = timeToMin(a.time), tB = timeToMin(b.time);
+      if(tA>=9999 || tB>=9999) continue;
+      const cA = getItemCoords(a), cB = getItemCoords(b);
+      let minGap = 30; // 최소 30분 필요
+      if(cA && cB){
+        const travel = transportBetween(cA, cB);
+        minGap = travel.mins + 15; // 이동 + 여유 15분
+      }
+      // 예상 종료시각: 다음 항목까지 시간 or 기본 45분
+      const aDuration = Math.min(tB - tA, 90);
+      const aEnd = tA + aDuration;
+      if(aEnd + minGap > tB){
+        results.push({di, i, a, b, gap: tB - aEnd, needed: minGap, day: day.date});
+      }
+    }
+  });
+  return results;
+}
+
+/* 일정 탭 상단에 충돌 경고 배너 표시 */
+function renderConflictBanner(el){
+  const conflicts = scanAllConflicts();
+  if(!conflicts.length) return;
+  const banner = document.createElement('div');
+  banner.style.cssText='margin:8px 16px;padding:10px 12px;background:#fff3e0;border-left:3px solid #e65100;font-size:12px;line-height:1.5';
+  banner.innerHTML=`<b>⚠ 이동시간 포함 충돌 ${conflicts.length}건</b><br>`
+    + conflicts.slice(0,3).map(c=>
+        `${c.day}: <b>${c.a.title}</b> → <b>${c.b.title}</b> 사이 여유 ${c.gap}분 (${c.needed}분 필요)`
+      ).join('<br>')
+    + (conflicts.length>3 ? `<br>...외 ${conflicts.length-3}건` : '');
+  el.insertBefore(banner, el.firstChild);
 }
 
 /* 충돌 카드 표시 */
@@ -2003,7 +2195,8 @@ Rules: never delete _fixed:true items; preserve _user,_fixed,_lat,_lng,_dk field
       // _item을 result에 저장 (충돌 카드에서 재사용)
       result._item = plan[result.day].items.pop(); // placeOptimally가 이미 push했으므로 꺼냄
 
-      const conflict = detectConflict(result.day, result._item.time);
+      const newCoords = place.lat && place.lng ? {lat:place.lat, lng:place.lng} : null;
+      const conflict = detectConflict(result.day, result._item.time, newCoords);
       if(conflict){
         st.innerHTML='';
         showConflictCard(st, place, result, conflict);
@@ -2318,6 +2511,89 @@ document.getElementById('gpsBtn').addEventListener('click',()=>{
     {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
   );
 });
+
+/* ---------- WEATHER ---------- */
+// WMO 날씨 코드 → 이모지 + 한국어
+const WMO_ICON = {
+  0:'☀️',1:'🌤',2:'⛅',3:'☁️',
+  45:'🌫',48:'🌫',
+  51:'🌦',53:'🌦',55:'🌧',
+  61:'🌧',63:'🌧',65:'🌧',
+  71:'🌨',73:'🌨',75:'🌨',
+  80:'🌦',81:'🌧',82:'⛈',
+  95:'⛈',96:'⛈',99:'⛈',
+};
+const WMO_LABEL = {
+  0:'맑음',1:'대체로맑음',2:'구름조금',3:'흐림',
+  45:'안개',48:'안개',
+  51:'이슬비',53:'이슬비',55:'이슬비',
+  61:'비',63:'비',65:'폭우',
+  71:'눈',73:'눈',75:'폭설',
+  80:'소나기',81:'소나기',82:'뇌우',
+  95:'뇌우',96:'뇌우',99:'뇌우',
+};
+
+let weatherCache = null;
+// 여행 날짜 배열 (DEFAULT_PLAN과 동기화)
+const TRIP_DATES = ['2026-06-08','2026-06-09','2026-06-10','2026-06-11','2026-06-12','2026-06-13','2026-06-14','2026-06-15','2026-06-16'];
+
+async function fetchWeather(){
+  if(weatherCache) return weatherCache;
+  try{
+    const url = 'https://api.open-meteo.com/v1/forecast'
+      + '?latitude=55.676&longitude=12.568'
+      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode'
+      + '&timezone=Europe%2FCopenhagen'
+      + `&start_date=${TRIP_DATES[0]}&end_date=${TRIP_DATES[TRIP_DATES.length-1]}`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const data = await res.json();
+    // {dayIdx → {icon, label, max, min, rain}}
+    const map = {};
+    (data.daily?.time||[]).forEach((date,i)=>{
+      const di = TRIP_DATES.indexOf(date);
+      if(di<0) return;
+      const code = data.daily.weathercode[i];
+      map[di] = {
+        icon: WMO_ICON[code]||'🌡',
+        label: WMO_LABEL[code]||'',
+        max: Math.round(data.daily.temperature_2m_max[i]),
+        min: Math.round(data.daily.temperature_2m_min[i]),
+        rain: +(data.daily.precipitation_sum[i]||0).toFixed(1),
+      };
+    });
+    weatherCache = map;
+    return map;
+  }catch(e){ return null; }
+}
+
+/* ---------- PROGRESS ---------- */
+function updateDayProgress(di){
+  const items = plan[di]?.items||[];
+  if(!items.length) return;
+  const done = items.filter(it=>it._done).length;
+  const pct = Math.round(done/items.length*100);
+  const bar = document.getElementById(`prog-${di}`);
+  if(bar) bar.style.width = pct+'%';
+}
+
+/* ---------- FAVORITES ---------- */
+const FAV_KEY = 'cph_favorites';
+let favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'));
+function saveFavs(){ localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }
+let festFavFilter = false; // 즐겨찾기만 표시 토글
+
+/* ---------- SERVICE WORKER ---------- */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  // 오프라인 감지 배너
+  const offlineBanner = document.createElement('div');
+  offlineBanner.style.cssText='display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a1714;color:#fbf7ee;text-align:center;font-size:12px;padding:7px;font-family:Space Mono,monospace;letter-spacing:.05em';
+  offlineBanner.textContent='📵 오프라인 — 저장된 일정과 지도 타일은 계속 사용 가능합니다';
+  document.body.appendChild(offlineBanner);
+  window.addEventListener('offline', ()=>{ offlineBanner.style.display='block'; });
+  window.addEventListener('online',  ()=>{ offlineBanner.style.display='none';  });
+}
 
 /* ---------- INIT ---------- */
 (async()=>{
