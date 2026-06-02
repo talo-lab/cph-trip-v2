@@ -1633,24 +1633,47 @@ async function sendDrawerMsg(){
   st.className = 'drawer-status show';
   st.textContent = '분석 중...';
 
-  const sys = `You are a Copenhagen trip assistant. The user has a specific schedule item and a request about it. Output ONLY a JSON object with the updated item fields to apply. No markdown, no explanation.
-Updatable fields: time (string), title (string), note (string), dist (string).
-Example output: {"time":"14:00","note":"새로운 메모"}
-Only include fields that should change.`;
+  // 전체 plan을 넘겨서 날짜 이동 등 모든 수정 요청을 처리
+  const sys = `You are a Copenhagen trip plan editor. The user selected a specific item and made a request about it (Korean or English). Apply the change to the full plan and output ONLY the updated full plan JSON array. No markdown, no explanation.
+Rules:
+- Never delete _fixed:true items
+- Preserve _user, _fixed, _lat, _lng, _dk fields on all items
+- Moving an item to another day: remove from original day, add to target day
+- Sort each day's items by time after changes
+- Date reference: Day 0=6/8, Day 1=6/9, Day 2=6/10, Day 3=6/11, Day 4=6/12, Day 5=6/13, Day 6=6/14, Day 7=6/15, Day 8=6/16`;
 
-  const itemCtx = `Item: ${JSON.stringify({time:item.time,title:item.title,note:item.note,dist:item.dist})}
-Day: ${plan[di].date} (${plan[di].tag})
-Request: ${raw}`;
+  const planJson = JSON.stringify(plan.map(day=>({
+    date:day.date, tag:day.tag, fest:day.fest,
+    items:day.items.map(it=>({
+      time:it.time, title:it.title, note:it.note, dist:it.dist,
+      _fixed:it._fixed||undefined, _user:it._user||undefined,
+      _lat:it._lat||undefined, _lng:it._lng||undefined, _dk:it._dk||undefined
+    }))
+  })));
+
+  const context = `Selected item: "${item.title}" on Day ${di} (${plan[di].date} · ${plan[di].tag})
+Full plan JSON:
+${planJson}
+
+User request: ${raw}`;
 
   try{
     const resp = await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({system:sys, input:itemCtx, max_tokens:300})});
+      body:JSON.stringify({system:sys, input:context, max_tokens:4000})});
     if(!resp.ok) throw new Error('서버 '+resp.status);
     const data = await resp.json();
     const txt = (data.text||'').replace(/```json|```/g,'').trim();
-    const changes = JSON.parse(txt);
-    Object.assign(plan[di].items[ii], changes);
-    sortDayByTime(di);
+    const updated = JSON.parse(txt);
+    if(!Array.isArray(updated)) throw new Error('형식 오류');
+
+    updated.forEach((day,i)=>{
+      if(!plan[i]) return;
+      const fixed = plan[i].items.filter(it=>it._fixed);
+      plan[i].items = day.items || [];
+      fixed.forEach(fi=>{ if(!plan[i].items.some(it=>it.title===fi.title)) plan[i].items.push(fi); });
+      sortDayByTime(i);
+    });
+
     await savePlan();
     input.value='';
     st.className='drawer-status show ok';
