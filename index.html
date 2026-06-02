@@ -840,12 +840,18 @@ async function loadEvDetail(ev, id){
   }
 
   const sys = `너는 코펜하겐 3 Days of Design 2026 페스티벌 전문가다. 행사 정보를 받아 JSON만 출력한다. 마크다운·설명 절대 금지.
+
+예약 분류 기준 (매우 중요):
+- "불필요": 쇼룸 방문, 전시 관람, 브렉퍼스트/커피/토크/워크숍 등 브랜드가 무료로 여는 행사. 3 Days of Design 행사의 90% 이상이 여기에 해당. 브랜드 초대 행사, 오프닝, 가이드 투어 등 모두 불필요.
+- "티켓 필요": 공식 홈페이지 Shop(https://www.3daysofdesign.dk/shop)에서 유료 티켓을 판매하는 행사만. 대표 예: Long Table Dinner, Entering the Now Symposium, 유료 워크숍. 행사명이나 설명에 "ticket", "티켓", "유료", "dinner" 등 명확한 근거가 있을 때만 선택.
+- "사전등록 권장": 위 두 경우가 아닌, 무료이지만 인원 제한으로 사전 온라인 등록이 필요하다고 명시된 경우에만. 근거 없으면 "불필요"로 분류.
+
 출력 형식:
 {
   "detail": "3~4문장 상세 설명 (한국어, 행사 성격·볼거리·분위기)",
   "reservation": "불필요" | "사전등록 권장" | "티켓 필요",
-  "reservationNote": "예약 관련 한 줄 안내 (없으면 빈 문자열)",
-  "bookingUrl": "예약/등록 페이지 URL. 공식 페스티벌 사이트(https://www.3daysofdesign.dk/events)가 기본. 브랜드 고유 예약 페이지를 알면 해당 URL. 불필요이면 빈 문자열",
+  "reservationNote": "예약 관련 한 줄 안내. 불필요이면 빈 문자열",
+  "bookingUrl": "티켓 필요인 경우 https://www.3daysofdesign.dk/shop, 사전등록 권장인 경우 https://www.3daysofdesign.dk/events, 불필요이면 빈 문자열",
   "items": ["준비물1","준비물2",...],
   "duration": "예상 소요시간 (예: 30분~1시간)",
   "tips": "현장 팁 한 문장"
