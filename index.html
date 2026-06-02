@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3 Days of Design 2026 · Copenhagen Trip Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,400&family=Space+Mono:wght@400;700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --ink:#1a1714;
+    --paper:#f4 efe6;
+    --paper:#f5efe4;
+    --cream:#fbf7ee;
+    --rust:#c8492a;
+    --rust-deep:#9c3318;
+    --ochre:#d99021;
+    --sage:#5d7456;
+    --teal:#2f6b6b;
+    --plum:#6d3b54;
+    --slate:#3a4a5a;
+    --line:#ddd2bf;
+    --shadow:rgba(40,30,20,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Archivo',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  ::selection{background:var(--rust);color:var(--cream)}
+
+  .app{display:grid;grid-template-columns:minmax(380px,440px) 1fr;height:100vh}
+
+  /* ============ SIDEBAR ============ */
+  .panel{
+    background:var(--cream);
+    border-right:2px solid var(--ink);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+    position:relative;
+  }
+  .panel::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:radial-gradient(var(--line) .5px,transparent .5px);
+    background-size:14px 14px;opacity:.5;
+  }
+  header.brand{
+    padding:22px 24px 18px;
+    border-bottom:2px solid var(--ink);
+    position:relative;z-index:1;
+    background:var(--rust);
+    color:var(--cream);
+  }
+  .kicker{
+    font-family:'Space Mono',monospace;
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    opacity:.85;display:flex;justify-content:space-between;align-items:center;
+  }
+  .kicker .dot{width:8px;height:8px;border-radius:50%;background:var(--ochre);box-shadow:0 0 0 3px rgba(217,144,33,.3)}
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;font-size:34px;line-height:.95;margin-top:8px;
+    letter-spacing:-.01em;font-optical-sizing:auto;
+  }
+  h1 em{font-style:italic;color:var(--ochre)}
+  .sub{font-size:12.5px;margin-top:8px;opacity:.9;font-weight:500}
+
+  .tabs{
+    display:flex;gap:0;border-bottom:2px solid var(--ink);
+    position:relative;z-index:1;background:var(--cream);
+  }
+  .tab{
+    flex:1;padding:11px 4px;border:none;background:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink);opacity:.5;
+    border-right:1px solid var(--line);transition:.18s;
+  }
+  .tab:last-child{border-right:none}
+  .tab.active{opacity:1;background:var(--ink);color:var(--cream)}
+  .tab:hover:not(.active){opacity:.8;background:rgba(0,0,0,.04)}
+
+  .scroll{flex:1;overflow-y:auto;position:relative;z-index:1;padding:8px 0 80px}
+  .scroll::-webkit-scrollbar{width:9px}
+  .scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:0}
+  .scroll::-webkit-scrollbar-track{background:transparent}
+
+  /* ============ DAY CARD ============ */
+  .day{border-bottom:1px solid var(--line);}
+  .day-head{
+    display:flex;align-items:baseline;gap:10px;padding:16px 24px 6px;
+    cursor:pointer;user-select:none;
+  }
+  .day-num{
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+    background:var(--ink);color:var(--cream);padding:3px 7px;letter-spacing:.05em;
+    white-space:nowrap;
+  }
+  .day-num.fest{background:var(--rust)}
+  .day-date{font-family:'Fraunces',serif;font-size:19px;font-weight:600}
+  .day-tag{font-size:11px;color:var(--slate);font-weight:600;margin-left:auto;text-align:right;line-height:1.2}
+  .day-body{padding:4px 24px 16px}
+
+  .item{
+    display:flex;gap:11px;padding:9px 0;border-bottom:1px dashed var(--line);
+    position:relative;
+  }
+  .item:last-child{border-bottom:none}
+  .item-time{
+    font-family:'Space Mono',monospace;font-size:11px;color:var(--rust-deep);
+    font-weight:700;white-space:nowrap;padding-top:2px;min-width:46px;
+  }
+  .item-main{flex:1;min-width:0}
+  .item-title{font-size:14px;font-weight:600;line-height:1.25}
+  .item-title[contenteditable]{outline:none;border-radius:3px;transition:.15s}
+  .item-title[contenteditable]:focus{background:#fff4d6;box-shadow:0 0 0 2px var(--ochre)}
+  .item-note{font-size:12px;color:var(--slate);margin-top:2px;line-height:1.35}
+  .item-note[contenteditable]:focus{outline:none;background:#fff4d6;box-shadow:0 0 0 2px var(--ochre);border-radius:3px}
+  .item-dist{display:inline-block;font-size:10px;font-family:'Space Mono',monospace;color:var(--cream);background:var(--sage);padding:1px 5px;margin-top:4px;letter-spacing:.03em}
+  .item-x{
+    opacity:0;border:none;background:none;cursor:pointer;color:var(--rust);
+    font-size:16px;line-height:1;padding:2px 4px;align-self:flex-start;transition:.15s;
+  }
+  .item:hover .item-x{opacity:.6}
+  .item-x:hover{opacity:1!important;transform:scale(1.2)}
+  .add-item{
+    width:100%;margin-top:8px;padding:7px;border:1.5px dashed var(--line);
+    background:none;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;
+    color:var(--slate);letter-spacing:.05em;transition:.15s;
+  }
+  .add-item:hover{border-color:var(--rust);color:var(--rust);background:rgba(200,73,42,.04)}
+
+  /* ============ DISTRICTS TAB ============ */
+  .dist-list{padding:10px 0}
+  .dist{
+    display:flex;align-items:center;gap:12px;padding:13px 24px;cursor:pointer;
+    border-bottom:1px solid var(--line);transition:.15s;
+  }
+  .dist:hover{background:rgba(0,0,0,.03)}
+  .dist-swatch{width:18px;height:18px;border-radius:50%;flex-shrink:0;border:2px solid var(--ink)}
+  .dist-info{flex:1}
+  .dist-name{font-family:'Fraunces',serif;font-size:16px;font-weight:600}
+  .dist-desc{font-size:11.5px;color:var(--slate);margin-top:1px}
+  .dist-go{font-family:'Space Mono',monospace;font-size:10px;color:var(--rust);opacity:0;transition:.15s}
+  .dist:hover .dist-go{opacity:1}
+
+  /* ============ INFO TAB ============ */
+  .info{padding:18px 24px;font-size:13px;line-height:1.6}
+  .info h3{font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;color:var(--rust-deep)}
+  .info h3:first-child{margin-top:0}
+  .info p{margin-bottom:8px;color:var(--slate)}
+  .info ul{list-style:none;margin:6px 0}
+  .info li{padding:5px 0 5px 18px;position:relative;border-bottom:1px dotted var(--line)}
+  .info li::before{content:"▸";position:absolute;left:0;color:var(--ochre)}
+  .info b{color:var(--ink)}
+  .chip{display:inline-block;font-family:'Space Mono',monospace;font-size:10px;background:var(--ink);color:var(--cream);padding:2px 6px;margin:2px 3px 2px 0;letter-spacing:.04em}
+
+  /* save indicator */
+  .saver{
+    position:absolute;bottom:14px;left:24px;right:24px;z-index:2;
+    font-family:'Space Mono',monospace;font-size:10px;color:var(--sage);
+    display:flex;align-items:center;gap:6px;opacity:0;transition:.3s;letter-spacing:.05em;
+  }
+  .saver.show{opacity:1}
+  .saver .pulse{width:6px;height:6px;border-radius:50%;background:var(--sage)}
+  .reset{
+    position:absolute;bottom:10px;right:18px;z-index:3;border:1px solid var(--line);
+    background:var(--cream);font-family:'Space Mono',monospace;font-size:9px;
+    padding:4px 8px;cursor:pointer;color:var(--slate);letter-spacing:.05em;
+  }
+  .reset:hover{border-color:var(--rust);color:var(--rust)}
+
+  /* ============ MAP ============ */
+  .map-wrap{position:relative}
+  #map{height:100%;width:100%;background:#e8e0d0;filter:saturate(.92)}
+  .leaflet-container{font-family:'Archivo',sans-serif}
+  .map-legend{
+    position:absolute;top:18px;right:18px;z-index:500;background:var(--cream);
+    border:2px solid var(--ink);padding:12px 14px;box-shadow:4px 4px 0 var(--shadow);
+    max-width:200px;
+  }
+  .map-legend h4{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+  .leg-row{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:2px 0;cursor:pointer}
+  .leg-row:hover{font-weight:700}
+  .leg-dot{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink)}
+  .map-title{
+    position:absolute;bottom:18px;left:18px;z-index:500;background:var(--ink);
+    color:var(--cream);padding:8px 14px;font-family:'Space Mono',monospace;font-size:11px;
+    letter-spacing:.08em;box-shadow:4px 4px 0 var(--shadow);
+  }
+  .gps-btn{
+    position:absolute;bottom:18px;right:18px;z-index:500;background:var(--cream);
+    border:2px solid var(--ink);padding:9px 14px;font-family:'Space Mono',monospace;font-size:11px;
+    letter-spacing:.05em;cursor:pointer;box-shadow:4px 4px 0 var(--shadow);transition:.15s;font-weight:700;
+  }
+  .gps-btn:hover{background:var(--ink);color:var(--cream)}
+  .gps-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .gps-btn:disabled{opacity:.6;cursor:wait}
+  .me-dot{
+    width:18px;height:18px;border-radius:50%;background:#2f6b6b;border:3px solid #fff;
+    box-shadow:0 0 0 2px var(--teal),0 2px 6px rgba(0,0,0,.4);
+  }
+  .me-pulse{animation:mepulse 2s ease-out infinite}
+  @keyframes mepulse{0%{box-shadow:0 0 0 0 rgba(47,107,107,.5)}70%{box-shadow:0 0 0 16px rgba(47,107,107,0)}100%{box-shadow:0 0 0 0 rgba(47,107,107,0)}}
+  .gps-info{
+    position:absolute;bottom:62px;right:18px;z-index:500;background:#fff;border:2px solid var(--teal);
+    padding:9px 12px;font-size:11.5px;max-width:220px;box-shadow:4px 4px 0 var(--shadow);display:none;line-height:1.45;
+  }
+  .gps-info.show{display:block}
+  .gps-info b{color:var(--teal)}
+  .pin{
+    background:var(--rust);color:#fff;border:2px solid var(--ink);border-radius:50% 50% 50% 0;
+    width:26px;height:26px;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
+    box-shadow:2px 3px 4px var(--shadow);
+  }
+  .pin span{transform:rotate(45deg);font-family:'Space Mono',monospace;font-size:11px;font-weight:700}
+  .pin.home{background:var(--ink);width:30px;height:30px}
+  .pin.home span{color:var(--ochre);font-size:14px}
+  .leg-dot{display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--ochre);line-height:1}
+  .leaflet-popup-content-wrapper{border-radius:0;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--shadow)}
+  .leaflet-popup-content{margin:12px 16px;font-family:'Archivo'}
+  .pop-name{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin-bottom:3px}
+  .pop-desc{font-size:12px;color:var(--slate);line-height:1.4}
+
+  /* ============ ADD-PLACE TAB ============ */
+  .add-wrap{padding:18px 24px}
+  .add-wrap h3{font-family:'Fraunces',serif;font-size:18px;color:var(--rust-deep);margin-bottom:4px}
+  .add-wrap .lead{font-size:12.5px;color:var(--slate);line-height:1.5;margin-bottom:14px}
+  .field-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin:12px 0 5px;display:block}
+  .add-input{
+    width:100%;border:1.5px solid var(--ink);background:#fff;padding:10px 11px;
+    font-family:'Archivo';font-size:13.5px;color:var(--ink);resize:vertical;line-height:1.4;
+  }
+  .add-input:focus{outline:none;box-shadow:3px 3px 0 var(--shadow)}
+  textarea.add-input{min-height:64px}
+  .add-btn{
+    width:100%;margin-top:12px;padding:12px;border:none;cursor:pointer;background:var(--rust);
+    color:var(--cream);font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;font-weight:700;transition:.15s;
+  }
+  .add-btn:hover{background:var(--rust-deep)}
+  .add-btn:disabled{background:var(--line);color:var(--slate);cursor:wait}
+  .hint{font-size:11px;color:var(--slate);margin-top:8px;line-height:1.45;opacity:.8}
+  .status{
+    margin-top:14px;padding:11px 13px;border-left:3px solid var(--ochre);background:#fff8ea;
+    font-size:12.5px;line-height:1.5;color:var(--ink);display:none;
+  }
+  .status.show{display:block}
+  .status.err{border-left-color:var(--rust);background:#fceee9}
+  .status .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--ochre);
+    border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .placed{margin-top:8px;font-family:'Space Mono',monospace;font-size:11px}
+  .placed b{color:var(--rust-deep)}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .quick button{
+    border:1px solid var(--line);background:var(--cream);font-size:11px;padding:5px 9px;cursor:pointer;
+    font-family:'Archivo';color:var(--slate);transition:.15s;
+  }
+  .quick button:hover{border-color:var(--rust);color:var(--rust)}
+  .item.user-added{background:linear-gradient(90deg,rgba(217,144,33,.1),transparent)}
+  .item-src{display:inline-block;font-size:10px;font-family:'Space Mono',monospace;color:var(--ochre);margin-top:3px}
+  .item.fixed{background:linear-gradient(90deg,rgba(45,107,107,.13),transparent);border-left:3px solid var(--teal);padding-left:8px;margin-left:-11px}
+  .item-src.lock{color:var(--teal);font-weight:700}
+  .item-x[disabled]{cursor:default;opacity:.5}
+
+  @media(max-width:820px){
+    .app{grid-template-columns:1fr;grid-template-rows:55vh 45vh}
+    .panel{border-right:none;border-bottom:2px solid var(--ink)}
+    h1{font-size:28px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="panel">
+    <header class="brand">
+      <div class="kicker"><span>COPENHAGEN · DENMARK</span><span class="dot"></span></div>
+      <h1>3 Days of <em>Design</em><br>2026</h1>
+      <div class="sub">JUN 8 — JUN 16 · 미주 & 상효 · "Make This Moment Matter"</div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="plan">일정</button>
+      <button class="tab" data-tab="add">＋장소</button>
+      <button class="tab" data-tab="dist">지구</button>
+      <button class="tab" data-tab="info">정보</button>
+    </div>
+
+    <div class="scroll" id="scroll"></div>
+
+    <div class="saver" id="saver"><span class="pulse"></span> 자동 저장됨</div>
+    <button class="reset" id="reset">초기화</button>
+  </aside>
+
+  <!-- MAP -->
+  <main class="map-wrap">
+    <div id="map"></div>
+    <div class="map-legend">
+      <h4>8 Design Districts</h4>
+      <div id="legend"></div>
+    </div>
+    <button class="gps-btn" id="gpsBtn" title="내 위치 찾기">◎ 내 위치</button>
+    <div class="gps-info" id="gpsInfo"></div>
+    <div class="map-title">10–12 JUN · 8 DISTRICTS · 460+ BRANDS</div>
+  </main>
+</div>
+
+<script>
+/* ---------- DATA ---------- */
+const DISTRICTS = [
+  {key:'kongens', name:'Kongens Nytorv', color:'#c8492a', lat:55.680523, lng:12.585957, desc:'도심 핵심 광장 · Arper 등 주요 쇼룸 밀집', when:'Day 3 (6/10)'},
+  {key:'frederik', name:'Frederiksstaden', color:'#d99021', lat:55.685312, lng:12.586381, desc:'왕실 지구 · Designmuseum Danmark 인접', when:'Day 3 (6/10)'},
+  {key:'nordhavn', name:'Nordhavn', color:'#2f6b6b', lat:55.712579, lng:12.592704, desc:'페스티벌 발상지 · 미래지향 산업항 재생', when:'Day 4 (6/11)'},
+  {key:'islands', name:'Islands Brygge', color:'#5d7456', lat:55.664052, lng:12.573073, desc:'하버프론트 · 산업지구 도시재생', when:'Day 4 (6/11)'},
+  {key:'christ', name:'Christianshavn', color:'#6d3b54', lat:55.673658, lng:12.589203, desc:'17세기 운하 지구 · "city within a city"', when:'Day 5 (6/12)'},
+  {key:'holmen', name:'Holmen', color:'#3a4a5a', lat:55.688482, lng:12.611017, desc:'옛 해군기지 섬 · 건축·예술 명소', when:'Day 5 (6/12)'},
+  {key:'kultur', name:'Kultur', color:'#9c3318', lat:55.6845, lng:12.5790, desc:'문화 지구 · 디자인 토크 & 전시', when:'Day 5 (6/12)'},
+  {key:'rosen', name:'Rosengård', color:'#7a6a3a', lat:55.682292, lng:12.572735, desc:'Fritz Hansen 등 · 도심 북서 골목', when:'Day 3 (6/10)'},
+];
+
+// 숙소 (Airbnb · 베스테르브로, 상트요르겐스 호수 인근 · 정확 좌표 비공개로 대략 위치)
+const STAY = {
+  name:'우리 숙소 (Airbnb)',
+  lat:55.6745, lng:12.5535,
+  desc:'베스테르브로 · 상트요르겐스 호수 근처 · 코펜하겐 중앙역 900m · 현대적 아파트 (2인)',
+  meta:'체크인 6/9 15:00~ · 체크아웃 6/16 11:00 전',
+  url:'https://www.airbnb.co.kr/rooms/1565348100263330857'
+};
+
+const DEFAULT_PLAN = [
+  {date:'6/8 (월)', tag:'인천 출발', fest:false, items:[
+    {time:'22:25', title:'[미주] ICN → AMS 출발', note:'KE5925 (KLM 운항·B787-9) · 13h45m · 암스테르담 경유', dist:''},
+    {time:'23:35', title:'[상효] ICN(T2) → CPH 직항 출발', note:'SAS SK0988 · 13h25m · 좌석 31F', dist:''},
+  ]},
+  {date:'6/9 (화)', tag:'코펜하겐 도착', fest:false, items:[
+    {time:'06:00', title:'[상효] 코펜하겐(CPH·T3) 도착', note:'SAS 직항 · 메트로 M2로 도심 이동', dist:''},
+    {time:'08:30', title:'[미주] 코펜하겐(CPH·T2) 도착', note:'AMS 환승(KL1267) 후 도착 · 공항에서 합류', dist:''},
+    {time:'오전', title:'베스테르브로 숙소 짐 보관', note:'중앙역 900m · 체크인은 15:00부터', dist:'중앙역 도보'},
+    {time:'15:00', title:'Airbnb 체크인 (베스테르브로)', note:'상트요르겐스 호수 근처 현대적 아파트', dist:'숙소'},
+    {time:'오후', title:'시차 적응 산책 · 뉘하운(Nyhavn)', note:'무리하지 않기 · 가벼운 도심 워킹', dist:''},
+  ]},
+  {date:'6/10 (수)', tag:'페스티벌 1일차', fest:true, items:[
+    {time:'10:00', title:'Kongens Nytorv 지구', note:'도심 핵심 쇼룸부터 시작 · Arper 외', dist:'시작점'},
+    {time:'12:30', title:'Rosengård 지구', note:'Fritz Hansen 이벤트 · 도보 8분', dist:'도보 8분'},
+    {time:'14:30', title:'Frederiksstaden 지구', note:'왕실 지구 쇼룸 · 오프닝 분위기', dist:'도보 12분'},
+    {time:'16:00', title:'페스티벌 마무리 · 숙소 근처로 이동', note:'17시 다이닝 위해 베스테르브로로 복귀 (메트로/택시)', dist:'베스테르브로'},
+    {time:'17:00', title:'🍽 Food & Music with SALU (예약 완료)', note:'소셜 다이닝 3명 · Folkehuset Absalon, Sønder Blvd. 73 · 17:00–20:00 · QR코드 보유 · 숙소 도보권', dist:'고정 일정', _lat:55.665398, _lng:12.550298, _fixed:true},
+  ]},
+  {date:'6/11 (목)', tag:'페스티벌 2일차', fest:true, items:[
+    {time:'10:00', title:'Nordhavn 지구', note:'페스티벌 발상지 · 미래지향 전시', dist:'메트로 M4'},
+    {time:'14:00', title:'Islands Brygge 지구', note:'하버프론트 · 자전거 이동 추천', dist:'자전거 20분'},
+    {time:'저녁', title:'하버 사이드 디너 · 수영(선택)', note:'Islands Brygge 하버바스', dist:''},
+  ]},
+  {date:'6/12 (금)', tag:'페스티벌 3일차', fest:true, items:[
+    {time:'10:00', title:'Designmuseum Danmark', note:'3일 프로그램 · 전시·토크·워크숍', dist:'필수 코스'},
+    {time:'12:30', title:'Christianshavn 지구', note:'운하 지구 쇼룸 · 보트 이동 가능', dist:'도보 10분'},
+    {time:'14:30', title:'Holmen 지구', note:'옛 해군기지 · 건축 명소', dist:'도보/보트'},
+    {time:'16:00', title:'Kultur 지구 · 클로징', note:'디자인 토크 마무리 · 클로징 파티', dist:''},
+  ]},
+  {date:'6/13 (토)', tag:'자유 관광', fest:false, items:[
+    {time:'오전', title:'티볼리 / 못 본 쇼룸 보충', note:'관심 브랜드 재방문', dist:''},
+    {time:'오후', title:'디자인 숍 · 카페 투어', note:'Hay House, Illums Bolighus 등', dist:''},
+  ]},
+  {date:'6/14 (일)', tag:'근교 / 미술관', fest:false, items:[
+    {time:'종일', title:'Louisiana 현대미술관 (선택)', note:'기차 약 35분 · 북유럽 디자인 명소', dist:'당일치기'},
+  ]},
+  {date:'6/15 (월)', tag:'자유 일정', fest:false, items:[
+    {time:'종일', title:'예비일 · 자유 탐방', note:'직접 일정을 추가해 보세요', dist:''},
+  ]},
+  {date:'6/16 (화)', tag:'귀국 (출국일)', fest:false, items:[
+    {time:'~11:00', title:'Airbnb 체크아웃', note:'체크아웃 11:00 전 · 베스테르브로 · 짐 정리', dist:'숙소'},
+    {time:'오전', title:'마지막 산책 · 기념품 (함께)', note:'14시 이전까지 도심에서 함께 보내기', dist:''},
+    {time:'~14:30', title:'[미주] 공항 이동 → 체크인', note:'16:40 출발편 · 2시간 전 도착 권장', dist:'먼저 출발'},
+    {time:'16:40', title:'[미주] CPH → LHR 출발', note:'SK1517 · 런던 경유 후 6/17 16:15 ICN 도착', dist:''},
+    {time:'오후~저녁', title:'[상효] 도심 자유시간', note:'미주 출발 후 늦은 출국까지 여유 · 카페·디너', dist:''},
+    {time:'~21:30', title:'[상효] 공항 이동 (CPH·T3)', note:'23:55 출발편 · 2시간 전 도착', dist:'늦게 출발'},
+    {time:'23:55', title:'[상효] CPH → ICN 직항 출발', note:'SAS SK0987 · 11h40m · 6/17 18:35 ICN 도착', dist:''},
+  ]},
+];
+
+/* ---------- STATE / PERSISTENCE ---------- */
+const STORE_KEY = 'cph_design_plan_v3';
+let plan;
+async function loadPlan(){
+  try{
+    const r = await window.storage.get(STORE_KEY);
+    plan = r && r.value ? JSON.parse(r.value) : structuredClone(DEFAULT_PLAN);
+  }catch(e){
+    plan = structuredClone(DEFAULT_PLAN);
+  }
+}
+let saveTimer;
+async function savePlan(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async()=>{
+    try{
+      await window.storage.set(STORE_KEY, JSON.stringify(plan), false);
+      const s=document.getElementById('saver'); s.classList.add('show');
+      setTimeout(()=>s.classList.remove('show'),1400);
+    }catch(e){}
+  },400);
+}
+
+/* ---------- RENDER: PLAN ---------- */
+function renderPlan(){
+  const el = document.getElementById('scroll');
+  el.innerHTML = '';
+  plan.forEach((day,di)=>{
+    const d = document.createElement('div'); d.className='day';
+    d.innerHTML = `
+      <div class="day-head">
+        <span class="day-num ${day.fest?'fest':''}">${day.fest?'FEST':'DAY'} ${di}</span>
+        <span class="day-date">${day.date}</span>
+        <span class="day-tag">${day.tag}</span>
+      </div>
+      <div class="day-body" id="body-${di}"></div>`;
+    el.appendChild(d);
+    const body = d.querySelector(`#body-${di}`);
+    day.items.forEach((it,ii)=>{
+      const row = document.createElement('div'); row.className='item'+(it._user?' user-added':'')+(it._fixed?' fixed':'');
+      row.innerHTML = `
+        <div class="item-time">${it.time||''}</div>
+        <div class="item-main">
+          <div class="item-title" contenteditable spellcheck="false">${it.title||''}</div>
+          <div class="item-note" contenteditable spellcheck="false">${it.note||''}</div>
+          ${it.dist?`<span class="item-dist">${it.dist}</span>`:''}
+          ${it._user?`<span class="item-src">＋ 내가 추가</span>`:''}
+          ${it._fixed?`<span class="item-src lock">🔒 예약 확정 · 고정</span>`:''}
+        </div>
+        <button class="item-x" title="${it._fixed?'고정 일정':'삭제'}" ${it._fixed?'disabled':''}>${it._fixed?'🔒':'×'}</button>`;
+      const t=row.querySelector('.item-title'), n=row.querySelector('.item-note');
+      t.addEventListener('input',()=>{plan[di].items[ii].title=t.textContent;savePlan()});
+      n.addEventListener('input',()=>{plan[di].items[ii].note=n.textContent;savePlan()});
+      const xb=row.querySelector('.item-x');
+      if(!it._fixed) xb.addEventListener('click',()=>{
+        plan[di].items.splice(ii,1);savePlan();renderPlan();
+      });
+      body.appendChild(row);
+    });
+    const add=document.createElement('button'); add.className='add-item'; add.textContent='+ 일정 추가';
+    add.addEventListener('click',()=>{
+      plan[di].items.push({time:'',title:'새 일정',note:'',dist:''});savePlan();renderPlan();
+    });
+    body.appendChild(add);
+  });
+}
+
+/* ---------- RENDER: DISTRICTS ---------- */
+function renderDist(){
+  const el=document.getElementById('scroll'); el.innerHTML='';
+  const wrap=document.createElement('div'); wrap.className='dist-list';
+  DISTRICTS.forEach(d=>{
+    const row=document.createElement('div'); row.className='dist';
+    row.innerHTML=`
+      <span class="dist-swatch" style="background:${d.color}"></span>
+      <div class="dist-info">
+        <div class="dist-name">${d.name}</div>
+        <div class="dist-desc">${d.desc} · ${d.when}</div>
+      </div>
+      <span class="dist-go">지도 ▸</span>`;
+    row.addEventListener('click',()=>{ map.flyTo([d.lat,d.lng],14.5,{duration:1}); markers[d.key].openPopup(); });
+    wrap.appendChild(row);
+  });
+  el.appendChild(wrap);
+}
+
+/* ---------- RENDER: INFO ---------- */
+function renderInfo(){
+  const el=document.getElementById('scroll');
+  el.innerHTML=`<div class="info">
+    <h3>행사 개요</h3>
+    <p><b>3 Days of Design 2026</b> (13회차) · 덴마크 공식 디자인 페스티벌. 단일 장소가 아닌 코펜하겐 전역의 쇼룸·갤러리에서 분산 개최됩니다.</p>
+    <ul>
+      <li><b>일정</b> 6/10(수)~6/12(금) · 매일 10:00–18:00</li>
+      <li><b>규모</b> 460+ 브랜드 · 600+ 이벤트 · 6만+ 방문</li>
+      <li><b>입장</b> 전 행사 무료 · 일반 개방</li>
+      <li><b>테마</b> "Make This Moment Matter"</li>
+    </ul>
+    <h3>숙소</h3>
+    <p><b>베스테르브로(Vesterbro) Airbnb</b> · 상트요르겐스 호수 근처 · 코펜하겐 중앙역에서 900m. 침실 1 / 침대 1 / 욕실 1 (2인) 현대적 아파트.</p>
+    <ul>
+      <li><b>체크인</b> 6/9(화) 15:00 이후</li>
+      <li><b>체크아웃</b> 6/16(화) 11:00 전</li>
+      <li><b>위치 장점</b> 중앙역 도보권 → 공항·근교 이동 편리, 지구별 메트로/자전거 접근 양호</li>
+    </ul>
+    <p style="font-size:11px;opacity:.7">※ 지도의 ★ 숙소 핀은 Airbnb가 정확 좌표를 공개하지 않아 베스테르브로·호수 인근의 대략적 위치입니다. 체크인 후 정확한 주소로 맞추세요.</p>
+    <h3>고정 예약</h3>
+    <ul>
+      <li><b>Food & Music with SALU</b> (소셜 다이닝, 3명) · 6/10(수) 17:00–20:00</li>
+      <li>Folkehuset Absalon · Sønder Blvd. 73, 1720 København (베스테르브로, 숙소 도보권)</li>
+      <li>QR코드 3매 메일 보유 · 숙소 근처에서 만나 함께 도보 이동</li>
+    </ul>
+    <p style="font-size:11.5px;color:var(--teal)"><b>동선 메모:</b> 6/10 페스티벌 일정을 16시경 마무리하고 베스테르브로로 복귀해야 17시 다이닝에 맞출 수 있습니다. 일정 탭에서 이 항목은 🔒로 고정되어 삭제되지 않습니다.</p>
+    <h3>항공편 (2인)</h3>
+    <p><b>박상효</b> · SAS 직항</p>
+    <ul>
+      <li>가는 편 6/8 23:35 ICN(T2) → 6/9 06:00 CPH(T3) · SK0988 · 좌석 31F</li>
+      <li>오는 편 6/16 23:55 CPH(T3) → 6/17 18:35 ICN(T2) · SK0987 · 좌석 31F</li>
+    </ul>
+    <p><b>김미주</b> · KLM/대한항공/SAS 경유</p>
+    <ul>
+      <li>가는 편 6/8 22:25 ICN → AMS 환승(KE5925/KL1267) → 6/9 08:30 CPH(T2)</li>
+      <li>오는 편 6/16 16:40 CPH → LHR 환승(SK1517/KE908) → 6/17 16:15 ICN</li>
+    </ul>
+    <p style="font-size:11.5px;color:var(--rust-deep)"><b>주의:</b> 도착일(6/9) 박상효 06:00 · 김미주 08:30 도착으로 약 2.5시간 차. 출국일(6/16) 김미주가 16:40 먼저 출발(14:30경 공항행), 박상효는 23:55 출발이라 오후~저녁 도심 자유시간이 있습니다.</p>
+    <h3>이동 팁</h3>
+    <p>자전거 대여 · 메트로 · 버스 · 보트 · 도보 모두 가능. 8개 지구가 분산돼 있어 <b>지리적으로 묶어 하루 2~3개 지구</b>를 도는 전략이 효율적입니다.</p>
+    <h3>참가 브랜드 (일부)</h3>
+    <p><span class="chip">Fritz Hansen</span><span class="chip">&Tradition</span><span class="chip">Ferm Living</span><span class="chip">Gubi</span><span class="chip">Louis Poulsen</span><span class="chip">Audo</span><span class="chip">Carl Hansen</span><span class="chip">Georg Jensen</span><span class="chip">Arper</span><span class="chip">Flos</span></p>
+    <h3>준비 체크리스트</h3>
+    <ul>
+      <li>공식 앱 다운로드 → 관심 브랜드·이벤트 즐겨찾기</li>
+      <li>숙소 조기 예약 (6만 명 몰려 가격 급등)</li>
+      <li>6월 코펜하겐은 일조시간이 길고 쌀쌀 → 레이어드 의류</li>
+      <li>인기 디자인 토크는 사전 등록 필요할 수 있음</li>
+    </ul>
+    <p style="margin-top:14px;font-size:11px;opacity:.6">※ 일정·디자인 지구 매칭은 추천안이며, 실제 프로그램은 3daysofdesign.dk에서 확정됩니다. 일정 탭의 모든 항목은 직접 편집·추가·삭제할 수 있고 자동 저장됩니다.</p>
+  </div>`;
+}
+
+/* ---------- OPTIMIZER ENGINE ---------- */
+// 날짜 인덱스 ↔ 페스티벌 매핑 (DEFAULT_PLAN 기준: 0출발 1도착 2~4페스티벌 5~8자유 9귀국)
+const FEST_DAYS = [2,3,4];           // 6/10,6/11,6/12
+const FREE_DAYS = [5,6,7];           // 6/13~6/15 (6/16은 출국일이라 제외)
+const ARRIVAL_DAY = 1;               // 6/9 오후
+// 각 페스티벌 날에 이미 배정된 지구 (동선 묶음용)
+function districtsOnDay(di){
+  const set=new Set();
+  plan[di].items.forEach(it=>{ if(it._dk) set.add(it._dk); });
+  return set;
+}
+// 지구 간 거리(좌표 기반) → 가장 가까운 지구 키
+function nearestDistrict(lat,lng){
+  let best=null,bd=1e9;
+  DISTRICTS.forEach(d=>{
+    const dd=Math.hypot(d.lat-lat,d.lng-lng);
+    if(dd<bd){bd=dd;best=d;}
+  });
+  return {key:best.key, dist_km:Math.round(bd*111*10)/10, district:best};
+}
+// 두 지구 좌표 거리(km)
+function kmBetween(a,b){return Math.hypot(a.lat-b.lat,a.lng-b.lng)*111;}
+
+// 핵심: 추출된 장소(place)를 최적의 날/시간에 배치
+function placeOptimally(place){
+  // place: {title, lat, lng, districtKey, isFestival, preferTime, note, source}
+  const dk = place.districtKey || (place.lat? nearestDistrict(place.lat,place.lng).key : null);
+  let targetDay=null, reason='';
+
+  // 1) 페스티벌 프로그램이면 → 같은 지구가 배정된 페스티벌 날 우선, 없으면 가장 가까운 지구의 날
+  if(place.isFestival){
+    let dayWithSame = FEST_DAYS.find(di=>districtsOnDay(di).has(dk));
+    if(dayWithSame!=null){ targetDay=dayWithSame; reason='같은 지구 방문일에 묶음'; }
+    else {
+      // 지구별로 어느 페스티벌 날에 가는지 찾아 가장 가까운 지구의 날 선택
+      let bestDi=FEST_DAYS[0], bd=1e9;
+      FEST_DAYS.forEach(di=>{
+        districtsOnDay(di).forEach(k=>{
+          const A=DISTRICTS.find(x=>x.key===k), B=DISTRICTS.find(x=>x.key===dk);
+          if(A&&B){const d=kmBetween(A,B); if(d<bd){bd=d;bestDi=di;}}
+        });
+      });
+      targetDay=bestDi; reason='가장 가까운 지구의 페스티벌 날에 배치';
+    }
+  } else {
+    // 2) 비페스티벌(상시 관광지/미술관 등) → 가장 가까운 지구가 배정된 날이 있으면 거기, 없으면 자유일 중 가장 한가한 날
+    let dayWithSame = [...FEST_DAYS,...FREE_DAYS].find(di=>districtsOnDay(di).has(dk));
+    if(dayWithSame!=null && dk){ targetDay=dayWithSame; reason='인접 지구 방문일에 묶음'; }
+    else {
+      // 자유일 중 항목 수가 가장 적은 날
+      let bestDi=FREE_DAYS[0], bc=1e9;
+      FREE_DAYS.forEach(di=>{ const c=plan[di].items.length; if(c<bc){bc=c;bestDi=di;} });
+      targetDay=bestDi; reason='자유일 중 여유 있는 날에 배치';
+    }
+  }
+
+  // 시간 결정: preferTime 있으면 사용, 없으면 해당 날 마지막 시간 뒤 슬롯
+  const newItem={
+    time: place.preferTime || suggestTime(targetDay),
+    title: place.title,
+    note: place.note || '',
+    dist: dk ? ('↔ '+(DISTRICTS.find(d=>d.key===dk)?.name||'')) : '',
+    _dk: dk,
+    _user: true,
+    _lat: place.lat, _lng: place.lng
+  };
+  plan[targetDay].items.push(newItem);
+  sortDayByTime(targetDay);
+  return {day:targetDay, dateLabel:plan[targetDay].date, reason, districtKey:dk};
+}
+
+// 시간 문자열을 분으로 (정렬용). "오전/오후/종일" 등은 적당히 매핑
+function timeToMin(t){
+  if(!t) return 9999;
+  t=t.trim();
+  const m=t.match(/(\d{1,2}):(\d{2})/);
+  if(m) return (+m[1])*60+(+m[2]);
+  if(t.includes('오전')) return 9*60;
+  if(t.includes('오후')) return 14*60;
+  if(t.includes('저녁')) return 19*60;
+  if(t.includes('종일')) return 8*60;
+  if(t.startsWith('~')){const mm=t.match(/(\d{1,2}):(\d{2})/);return mm?(+mm[1])*60+(+mm[2]):9999;}
+  return 9999;
+}
+function sortDayByTime(di){ plan[di].items.sort((a,b)=>timeToMin(a.time)-timeToMin(b.time)); }
+// 빈 시간 슬롯 추천: 마지막 구체 시간 +2시간
+function suggestTime(di){
+  const times=plan[di].items.map(it=>timeToMin(it.time)).filter(v=>v<9999&&v>=8*60&&v<22*60);
+  if(!times.length) return '10:00';
+  const last=Math.max(...times)+120;
+  const h=Math.min(20,Math.floor(last/60)), mm=last%60;
+  return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+}
+
+/* ---------- API: 입력 → 구조화된 장소 추출 ---------- */
+// 잘 알려진 코펜하겐 장소 사전 → API 호출 없이 즉시 매칭 (비용 절감)
+const KNOWN_PLACES = {
+  'noma':        {title:'Noma',                   lat:55.6925, lng:12.6100, districtKey:'holmen',  isFestival:false, note:'세계적 파인다이닝 · 예약 필수'},
+  'tivoli':      {title:'Tivoli Gardens',         lat:55.6736, lng:12.5681, districtKey:'kongens', isFestival:false, note:'중앙역 옆 놀이공원'},
+  '티볼리':       {title:'Tivoli Gardens',         lat:55.6736, lng:12.5681, districtKey:'kongens', isFestival:false, note:'중앙역 옆 놀이공원'},
+  'nyhavn':      {title:'Nyhavn',                  lat:55.6797, lng:12.5913, districtKey:'kongens', isFestival:false, note:'운하·컬러풀 건물'},
+  '뉘하운':       {title:'Nyhavn',                  lat:55.6797, lng:12.5913, districtKey:'kongens', isFestival:false, note:'운하·컬러풀 건물'},
+  'hay house':   {title:'Hay House',              lat:55.6794, lng:12.5797, districtKey:'kongens', isFestival:false, note:'덴마크 디자인 플래그십'},
+  'illums':      {title:'Illums Bolighus',        lat:55.6789, lng:12.5800, districtKey:'kongens', isFestival:false, note:'디자인 백화점'},
+  'designmuseum':{title:'Designmuseum Danmark',   lat:55.6866, lng:12.5928, districtKey:'frederik',isFestival:true,  note:'덴마크 디자인뮤지엄'},
+  'louisiana':   {title:'Louisiana 현대미술관',     lat:55.9695, lng:12.5430, districtKey:null,      isFestival:false, note:'기차 약 35분 근교'},
+  'reffen':      {title:'Reffen 스트리트푸드',       lat:55.6915, lng:12.6045, districtKey:'holmen',  isFestival:false, note:'대형 푸드마켓'},
+  'absalon':     {title:'Folkehuset Absalon',     lat:55.6654, lng:12.5503, districtKey:null,      isFestival:false, note:'베스테르브로 커뮤니티 다이닝'},
+  'torvehallerne':{title:'Torvehallerne',         lat:55.6836, lng:12.5713, districtKey:'rosen',   isFestival:false, note:'푸드마켓'},
+  'rundetaarn':  {title:'Rundetårn (둥근탑)',       lat:55.6814, lng:12.5757, districtKey:'kultur',  isFestival:false, note:'전망대'},
+  '인어공주':      {title:'Little Mermaid',          lat:55.6929, lng:12.5993, districtKey:'frederik',isFestival:false, note:'동상'},
+};
+function checkKnown(raw){
+  const q=raw.toLowerCase().trim();
+  for(const k in KNOWN_PLACES){ if(q.includes(k)){ return {...KNOWN_PLACES[k], preferTime:null, source:'사전(무료)'}; } }
+  return null;
+}
+// 분석 결과 캐시 (같은 입력 재분석 방지)
+const EXTRACT_CACHE={};
+
+// claude.ai 아티팩트 환경인지 감지 (배포 시엔 /api/extract 사용)
+const ON_CLAUDE = location.hostname.endsWith('claude.ai') || location.hostname.endsWith('claudeusercontent.com') || location.hostname==='localhost' && false;
+
+async function extractPlace(rawText){
+  // 1) 캐시
+  if(EXTRACT_CACHE[rawText]) return {...EXTRACT_CACHE[rawText]};
+  // 2) 사전 (API 호출 0)
+  const known=checkKnown(rawText);
+  if(known){ EXTRACT_CACHE[rawText]=known; return {...known}; }
+
+  const districtList = DISTRICTS.map(d=>`${d.key}: ${d.name} (${d.desc})`).join('\n');
+  const sys = `너는 코펜하겐 여행 일정 도우미다. 사용자가 입력한 장소명/설명/URL에서 정보를 추출해 JSON만 출력한다. 마크다운·설명 금지.
+코펜하겐 8개 디자인 지구:
+${districtList}
+
+추출 규칙:
+- title: 장소/이벤트 이름 (한국어 또는 원어, 간결하게)
+- lat,lng: 알고 있으면 코펜하겐 내 좌표(숫자). 모르면 null
+- districtKey: 위 8개 중 가장 가까운/관련된 지구의 key. 판단 불가 시 null
+- isFestival: 3 Days of Design 페스티벌(6/10~12) 관련 쇼룸/전시/토크면 true, 일반 관광지/미술관/식당이면 false
+- preferTime: 명시된 시간 있으면 "HH:MM", 없으면 null
+- note: 한 줄 메모(특징/주소힌트). 없으면 ""
+URL이 주어지면 URL과 도메인/슬러그에서 추론한다. 정보가 부족하면 합리적으로 추정하되 모르면 null을 쓴다.
+출력 형식: {"title":"","lat":null,"lng":null,"districtKey":null,"isFestival":false,"preferTime":null,"note":""}`;
+
+  let txt;
+  if(ON_CLAUDE){
+    // claude.ai 아티팩트: 키 없이 직접 호출
+    const resp = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:rawText}]})
+    });
+    if(!resp.ok) throw new Error('API '+resp.status);
+    const data=await resp.json();
+    txt=data.content.filter(c=>c.type==='text').map(c=>c.text).join('').trim();
+  } else {
+    // 배포 환경: 서버리스 함수(/api/extract)가 키를 안전하게 보관하고 대신 호출
+    const resp = await fetch("/api/extract",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({system:sys, input:rawText})
+    });
+    if(!resp.ok) throw new Error('서버 '+resp.status);
+    const data=await resp.json();
+    txt=(data.text||'').trim();
+  }
+  txt=txt.replace(/```json|```/g,'').trim();
+  const obj=JSON.parse(txt);
+  obj.source = rawText.startsWith('http')?'링크':'입력';
+  EXTRACT_CACHE[rawText]=obj;
+  return obj;
+}
+
+/* ---------- RENDER: ADD-PLACE TAB ---------- */
+function renderAdd(){
+  const el=document.getElementById('scroll');
+  el.innerHTML=`<div class="add-wrap">
+    <h3>가고 싶은 곳 추가</h3>
+    <p class="lead">장소·전시·식당 이름을 적거나 링크(URL)를 붙여넣으면, 위치와 성격을 분석해 <b>가장 적합한 날과 시간대</b>에 자동으로 일정에 끼워 넣습니다. 같은 지구는 묶고, 페스티벌 프로그램은 6/10~12에 배치합니다.</p>
+
+    <label class="field-label">장소 / 프로그램 / 링크</label>
+    <textarea class="add-input" id="addInput" placeholder="예) Gubi 쇼룸&#10;예) Noma 레스토랑&#10;예) https://www.3daysofdesign.dk/..."></textarea>
+
+    <div class="quick">
+      <button data-q="Designmuseum Danmark 특별전">디자인뮤지엄 특별전</button>
+      <button data-q="Hay House 플래그십 스토어">Hay House</button>
+      <button data-q="Tivoli Gardens">티볼리</button>
+      <button data-q="Reffen 스트리트푸드 마켓">Reffen 푸드마켓</button>
+    </div>
+
+    <button class="add-btn" id="addBtn">＋ 분석해서 일정에 추가</button>
+    <p class="hint">수기 입력과 링크 모두 가능합니다. 시간이 명시돼 있으면 그 시간에, 없으면 해당 날의 빈 시간대에 배치됩니다. 추가 후 일정 탭에서 시간·메모를 자유롭게 수정할 수 있어요.</p>
+
+    <div class="status" id="addStatus"></div>
+  </div>`;
+
+  el.querySelectorAll('.quick button').forEach(b=>{
+    b.addEventListener('click',()=>{ document.getElementById('addInput').value=b.dataset.q; });
+  });
+  document.getElementById('addBtn').addEventListener('click',runAdd);
+}
+
+async function runAdd(){
+  const input=document.getElementById('addInput');
+  const btn=document.getElementById('addBtn');
+  const st=document.getElementById('addStatus');
+  const raw=input.value.trim();
+  if(!raw){ input.focus(); return; }
+  btn.disabled=true; btn.textContent='분석 중...';
+  st.className='status show'; st.innerHTML='<span class="spin"></span> 위치와 성격을 분석하고 있어요...';
+  try{
+    const place=await extractPlace(raw);
+    if(!place.title) place.title=raw.slice(0,40);
+    const result=placeOptimally(place);
+    await savePlan();
+    addUserMarker(place);
+    const distName=result.districtKey?(DISTRICTS.find(d=>d.key===result.districtKey)?.name):'지구 미지정';
+    st.className='status show';
+    st.innerHTML=`<b>✓ "${place.title}"</b> 추가 완료!
+      <div class="placed">→ <b>${result.dateLabel}</b> · ${place.isFestival?'페스티벌':'자유'} · ${distName}</div>
+      <div class="placed" style="opacity:.7">배치 근거: ${result.reason}</div>`;
+    input.value='';
+    if(place.lat){ map.flyTo([place.lat,place.lng],14,{duration:1}); }
+  }catch(e){
+    st.className='status show err';
+    st.innerHTML=`분석에 실패했어요 (${e.message}). 장소 이름을 더 구체적으로 적거나 다시 시도해 주세요. 직접 일정 탭에서 "+ 일정 추가"로 넣을 수도 있습니다.`;
+  }finally{
+    btn.disabled=false; btn.textContent='＋ 분석해서 일정에 추가';
+  }
+}
+
+// 사용자 추가 장소 지도 마커
+const userMarkers=[];
+function addUserMarker(place){
+  if(!place.lat||!place.lng) return;
+  const icon=L.divIcon({className:'',html:`<div class="pin" style="background:var(--ochre)"><span>+</span></div>`,iconSize:[26,26],iconAnchor:[13,26],popupAnchor:[0,-26]});
+  const m=L.marker([place.lat,place.lng],{icon}).addTo(map);
+  m.bindPopup(`<div class="pop-name">${place.title}</div><div class="pop-desc">${place.note||'사용자 추가 장소'}</div>`);
+  userMarkers.push(m);
+}
+
+/* ---------- TABS ---------- */
+let activeTab='plan';
+function setTab(t){
+  activeTab=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  if(t==='plan')renderPlan(); else if(t==='add')renderAdd(); else if(t==='dist')renderDist(); else renderInfo();
+}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+
+document.getElementById('reset').addEventListener('click',async()=>{
+  if(confirm('일정을 초기 상태로 되돌릴까요? 편집한 내용이 사라집니다.')){
+    plan=structuredClone(DEFAULT_PLAN); await savePlan(); if(activeTab==='plan')renderPlan();
+  }
+});
+
+/* ---------- MAP ---------- */
+const map = L.map('map',{zoomControl:true,attributionControl:false}).setView([55.685,12.59],13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+const markers={};
+DISTRICTS.forEach((d,i)=>{
+  const icon=L.divIcon({className:'',html:`<div class="pin" style="background:${d.color}"><span>${i+1}</span></div>`,iconSize:[26,26],iconAnchor:[13,26],popupAnchor:[0,-26]});
+  const m=L.marker([d.lat,d.lng],{icon}).addTo(map);
+  m.bindPopup(`<div class="pop-name">${d.name}</div><div class="pop-desc">${d.desc}<br><b style="color:${d.color}">${d.when}</b></div>`);
+  markers[d.key]=m;
+});
+
+// 숙소 마커 (별 모양 강조)
+const stayIcon=L.divIcon({className:'',html:`<div class="pin home"><span>★</span></div>`,iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-30]});
+const stayMarker=L.marker([STAY.lat,STAY.lng],{icon:stayIcon}).addTo(map);
+stayMarker.bindPopup(`<div class="pop-name">🏠 ${STAY.name}</div><div class="pop-desc">${STAY.desc}<br><b style="color:var(--ink)">${STAY.meta}</b></div>`);
+markers['stay']=stayMarker;
+
+// 고정 예약: Food & Music with SALU (Folkehuset Absalon)
+const saluIcon=L.divIcon({className:'',html:`<div class="pin" style="background:var(--teal)"><span>🍽</span></div>`,iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-28]});
+const saluMarker=L.marker([55.665398,12.550298],{icon:saluIcon}).addTo(map);
+saluMarker.bindPopup(`<div class="pop-name">🍽 Food & Music with SALU</div><div class="pop-desc">소셜 다이닝 (3명 예약) · 6/10(수) 17:00–20:00<br>Folkehuset Absalon · Sønder Blvd. 73<br><b style="color:var(--teal)">숙소에서 도보권 · QR코드 보유</b></div>`);
+markers['salu']=saluMarker;
+// legend
+const leg=document.getElementById('legend');
+const stayRow=document.createElement('div'); stayRow.className='leg-row';
+stayRow.innerHTML=`<span class="leg-dot" style="background:#1a1714">★</span><b>우리 숙소</b>`;
+stayRow.style.cssText='border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:4px';
+stayRow.addEventListener('click',()=>{map.flyTo([STAY.lat,STAY.lng],15,{duration:1});stayMarker.openPopup()});
+leg.appendChild(stayRow);
+const saluRow=document.createElement('div'); saluRow.className='leg-row';
+saluRow.innerHTML=`<span class="leg-dot" style="background:#2f6b6b;color:#fff">🍽</span><b>SALU 다이닝 (6/10)</b>`;
+saluRow.style.cssText='border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:4px';
+saluRow.addEventListener('click',()=>{map.flyTo([55.665398,12.550298],15,{duration:1});saluMarker.openPopup()});
+leg.appendChild(saluRow);
+DISTRICTS.forEach((d,i)=>{
+  const r=document.createElement('div'); r.className='leg-row';
+  r.innerHTML=`<span class="leg-dot" style="background:${d.color}"></span>${i+1}. ${d.name}`;
+  r.addEventListener('click',()=>{map.flyTo([d.lat,d.lng],14.5,{duration:1});markers[d.key].openPopup()});
+  leg.appendChild(r);
+});
+
+/* ---------- GPS (무료, 브라우저 내장) ---------- */
+let meMarker=null;
+function haversineKm(a,b,c,d){
+  const R=6371,toR=x=>x*Math.PI/180;
+  const dLat=toR(c-a),dLng=toR(d-b);
+  const x=Math.sin(dLat/2)**2+Math.cos(toR(a))*Math.cos(toR(c))*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function walkMin(km){return Math.max(1,Math.round(km/5*60));} // 도보 5km/h 기준
+document.getElementById('gpsBtn').addEventListener('click',()=>{
+  const btn=document.getElementById('gpsBtn'), info=document.getElementById('gpsInfo');
+  if(!navigator.geolocation){
+    info.className='gps-info show'; info.innerHTML='이 브라우저는 위치 기능을 지원하지 않아요.'; return;
+  }
+  btn.disabled=true; btn.textContent='◎ 찾는 중...';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const {latitude:la,longitude:lo}=pos.coords;
+      if(meMarker) map.removeLayer(meMarker);
+      const icon=L.divIcon({className:'',html:`<div class="me-dot me-pulse"></div>`,iconSize:[18,18],iconAnchor:[9,9]});
+      meMarker=L.marker([la,lo],{icon,zIndexOffset:1000}).addTo(map);
+      meMarker.bindPopup('<div class="pop-name">📍 내 위치</div>');
+      map.flyTo([la,lo],14,{duration:1});
+      // 가장 가까운 디자인 지구 + 숙소까지 거리
+      let near=null,nd=1e9;
+      DISTRICTS.forEach(d=>{const km=haversineKm(la,lo,d.lat,d.lng); if(km<nd){nd=km;near=d;}});
+      const stayKm=haversineKm(la,lo,STAY.lat,STAY.lng);
+      const saluKm=haversineKm(la,lo,55.665398,12.550298);
+      info.className='gps-info show';
+      info.innerHTML=`<b>가장 가까운 지구</b><br>${near.name} · ${nd.toFixed(1)}km (도보 ~${walkMin(nd)}분)
+        <br><br>🏠 숙소까지 ${stayKm.toFixed(1)}km (~${walkMin(stayKm)}분)
+        <br>🍽 SALU까지 ${saluKm.toFixed(1)}km (~${walkMin(saluKm)}분)`;
+      btn.classList.add('active'); btn.disabled=false; btn.textContent='◎ 내 위치';
+    },
+    err=>{
+      info.className='gps-info show';
+      const msg=err.code===1?'위치 권한이 거부됐어요. 브라우저 설정에서 허용해 주세요.':'위치를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.';
+      info.innerHTML=msg;
+      btn.disabled=false; btn.textContent='◎ 내 위치';
+    },
+    {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+  );
+});
+
+/* ---------- INIT ---------- */
+(async()=>{
+  await loadPlan();
+  // 저장된 사용자 추가 장소의 지도 마커 복원
+  plan.forEach(day=>day.items.forEach(it=>{
+    if(it._user && it._lat && it._lng) addUserMarker({title:it.title,note:it.note,lat:it._lat,lng:it._lng});
+  }));
+  setTab('plan');
+})();
+</script>
+</body>
+</html>

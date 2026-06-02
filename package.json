@@ -1,0 +1,9 @@
+{
+  "name": "cph-design-trip",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Copenhagen 3 Days of Design 2026 trip planner",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
