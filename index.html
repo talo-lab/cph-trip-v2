@@ -123,6 +123,9 @@
   .item-note{font-size:12px;color:var(--slate);margin-top:2px;line-height:1.35}
   .item-note[contenteditable]:focus{outline:none;background:#fff4d6;box-shadow:0 0 0 2px var(--ochre);border-radius:3px}
   .item-dist{display:inline-block;font-size:10px;font-family:'Space Mono',monospace;color:var(--cream);background:var(--sage);padding:1px 5px;margin-top:4px;letter-spacing:.03em}
+  .item-walk{display:flex;align-items:center;gap:6px;padding:4px 24px;font-size:11px;font-family:'Space Mono',monospace;color:var(--slate);opacity:.7}
+  .item-walk::before{content:'';display:block;width:16px;height:1px;background:var(--slate);opacity:.4}
+  .item-walk::after{content:'';display:block;flex:1;height:1px;background:var(--slate);opacity:.15}
   .item-x{
     opacity:0;border:none;background:none;cursor:pointer;color:var(--rust);
     font-size:16px;line-height:1;padding:2px 4px;align-self:flex-start;transition:.15s;
@@ -409,10 +412,22 @@ async function savePlan(){
   },400);
 }
 
+/* ---------- ROUTE POLYLINE ---------- */
+let routeLayer = null;
+function drawDayRoute(di){
+  if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
+  const pts = plan[di].items.filter(it=>it._lat&&it._lng).map(it=>[it._lat,it._lng]);
+  if(pts.length<2) return;
+  routeLayer = L.polyline(pts,{color:'#c8492a',weight:3,opacity:.7,dashArray:'6 5'}).addTo(map);
+  map.fitBounds(routeLayer.getBounds(),{padding:[40,40],maxZoom:15});
+}
+
 /* ---------- RENDER: PLAN ---------- */
 function renderPlan(){
   const el = document.getElementById('scroll');
   el.innerHTML = '';
+  // 현재 스크롤에서 보이는 첫 번째 day 인덱스를 추적해 지도에 경로 그리기
+  let firstVisibleDay = null;
   plan.forEach((day,di)=>{
     const d = document.createElement('div'); d.className='day';
     d.innerHTML = `
@@ -444,13 +459,43 @@ function renderPlan(){
         plan[di].items.splice(ii,1);savePlan();renderPlan();
       });
       body.appendChild(row);
+
+      // 다음 항목과 좌표가 모두 있으면 이동거리 행 삽입
+      const next = day.items[ii+1];
+      if(it._lat&&it._lng&&next&&next._lat&&next._lng){
+        const km = Math.hypot(it._lat-next._lat,it._lng-next._lng)*111;
+        const min = Math.max(1,Math.round(km/5*60));
+        const walk = document.createElement('div');
+        walk.className='item-walk';
+        walk.textContent=`도보 약 ${min}분 · ${km.toFixed(1)}km`;
+        body.appendChild(walk);
+      }
     });
     const add=document.createElement('button'); add.className='add-item'; add.textContent='+ 일정 추가';
     add.addEventListener('click',()=>{
       plan[di].items.push({time:'',title:'새 일정',note:'',dist:''});savePlan();renderPlan();
     });
     body.appendChild(add);
+
+    // 좌표 있는 항목이 2개 이상인 첫 번째 날을 지도에 표시
+    if(firstVisibleDay===null && day.items.filter(it=>it._lat&&it._lng).length>=2){
+      firstVisibleDay=di;
+    }
   });
+  if(firstVisibleDay!==null) drawDayRoute(firstVisibleDay);
+
+  // 스크롤 시 보이는 day 변경되면 경로 업데이트
+  el.onscroll = ()=>{
+    const days = el.querySelectorAll('.day');
+    for(let i=0;i<days.length;i++){
+      const rect=days[i].getBoundingClientRect(), pRect=el.getBoundingClientRect();
+      if(rect.top>=pRect.top-10){
+        const hasPts = plan[i].items.filter(it=>it._lat&&it._lng).length>=2;
+        if(hasPts) drawDayRoute(i);
+        break;
+      }
+    }
+  };
 }
 
 /* ---------- RENDER: DISTRICTS ---------- */
