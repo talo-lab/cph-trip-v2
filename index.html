@@ -123,9 +123,25 @@
   .item-note{font-size:12px;color:var(--slate);margin-top:2px;line-height:1.35}
   .item-note[contenteditable]:focus{outline:none;background:#fff4d6;box-shadow:0 0 0 2px var(--ochre);border-radius:3px}
   .item-dist{display:inline-block;font-size:10px;font-family:'Space Mono',monospace;color:var(--cream);background:var(--sage);padding:1px 5px;margin-top:4px;letter-spacing:.03em}
-  .item-walk{display:flex;align-items:center;gap:6px;padding:4px 24px;font-size:11px;font-family:'Space Mono',monospace;color:var(--slate);opacity:.7}
-  .item-walk::before{content:'';display:block;width:16px;height:1px;background:var(--slate);opacity:.4}
-  .item-walk::after{content:'';display:block;flex:1;height:1px;background:var(--slate);opacity:.15}
+  .item-walk{display:flex;align-items:center;gap:6px;padding:3px 20px;font-size:10.5px;font-family:'Space Mono',monospace;color:var(--slate);opacity:.75}
+  .item-walk::before{content:'';display:block;width:12px;height:1px;background:var(--slate);opacity:.3}
+  .item-walk::after{content:'';display:block;flex:1;height:1px;background:var(--slate);opacity:.12}
+  .item-walk-icon{font-size:12px}
+  .item-walk-label{font-weight:700;letter-spacing:.04em}
+
+  /* ── 빈 시간 추천 ── */
+  .day-gap-section{padding:6px 16px 10px;border-top:1px dashed var(--line);background:rgba(93,116,86,.04)}
+  .day-gap-title{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--sage);margin-bottom:6px;display:flex;align-items:center;gap:6px;cursor:pointer}
+  .day-gap-title::after{content:'';flex:1;height:1px;background:var(--sage);opacity:.3}
+  .day-gap-list{display:flex;flex-direction:column;gap:4px}
+  .day-gap-item{
+    display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--cream);
+    border:1px solid var(--line);cursor:pointer;transition:.12s;
+  }
+  .day-gap-item:hover{border-color:var(--sage);background:rgba(93,116,86,.06)}
+  .day-gap-time{font-family:'Space Mono',monospace;font-size:9px;color:var(--rust-deep);font-weight:700;white-space:nowrap}
+  .day-gap-name{font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .day-gap-add{font-size:13px;color:var(--sage);flex-shrink:0;font-weight:700}
   .item-x{
     opacity:0;border:none;background:none;cursor:pointer;color:var(--rust);
     font-size:16px;line-height:1;padding:2px 4px;align-self:flex-start;transition:.15s;
@@ -697,6 +713,103 @@ function updateDayViz(di){
   renderPlanMarkers(di);
 }
 
+/* ---------- TRANSPORT MODE ---------- */
+function getTransportMode(km){
+  if(km < 0.7) return {icon:'🚶', label:'도보',     speed:5,  extra:0};
+  if(km < 2.5) return {icon:'🚴', label:'자전거',   speed:14, extra:0};
+  if(km < 6)   return {icon:'🚌', label:'대중교통', speed:18, extra:5};
+  return              {icon:'🚇', label:'지하철',   speed:28, extra:8};
+}
+
+function transportBetween(coordA, coordB){
+  const km = haversineKm(coordA.lat, coordA.lng, coordB.lat, coordB.lng);
+  const m = getTransportMode(km);
+  const mins = Math.max(1, Math.round(km/m.speed*60) + m.extra);
+  return {km, mins, ...m};
+}
+
+/* ---------- ITEM ROUTE VISUALIZATION (click) ---------- */
+function showItemRoute(di, ii){
+  if(selRouteLayer){ map.removeLayer(selRouteLayer); selRouteLayer=null; }
+  const items = plan[di].items;
+  const coords = getItemCoords(items[ii]);
+
+  // 이전/다음 좌표 있는 항목 탐색
+  let prevC=null, prevIt=null, nextC=null, nextIt=null;
+  for(let i=ii-1;i>=0;i--){ const c=getItemCoords(items[i]); if(c){prevC=c;prevIt=items[i];break;} }
+  for(let i=ii+1;i<items.length;i++){ const c=getItemCoords(items[i]); if(c){nextC=c;nextIt=items[i];break;} }
+
+  // 경로선 그리기
+  const pts=[];
+  if(prevC) pts.push([prevC.lat,prevC.lng]);
+  if(coords) pts.push([coords.lat,coords.lng]);
+  if(nextC) pts.push([nextC.lat,nextC.lng]);
+
+  if(pts.length>=2){
+    selRouteLayer=L.polyline(pts,{color:'#d99021',weight:3,opacity:.9,dashArray:'4 4'}).addTo(map);
+    map.fitBounds(L.latLngBounds(pts),{padding:[55,55],maxZoom:15});
+  } else if(coords){
+    map.flyTo([coords.lat,coords.lng],15,{duration:.8});
+    const pin=planPinLayer.find(m=>{const ll=m.getLatLng();return Math.abs(ll.lat-coords.lat)<.0001&&Math.abs(ll.lng-coords.lng)<.0001;});
+    if(pin) pin.openPopup();
+  }
+
+  // 드로어 상태에 이동수단 정보 표시
+  const parts=[];
+  if(prevC && coords){
+    const t=transportBetween(prevC,coords);
+    parts.push(`← ${t.icon} ${t.label} ~${t.mins}분 (${t.km.toFixed(1)}km)`);
+  }
+  if(coords && nextC){
+    const t=transportBetween(coords,nextC);
+    parts.push(`${t.icon} ${t.label} ~${t.mins}분 → (${t.km.toFixed(1)}km)`);
+  }
+  const st=document.getElementById('drawerStatus');
+  if(st && parts.length){
+    st.className='drawer-status show ok';
+    st.textContent=parts.join('   ·   ');
+  }
+}
+
+/* ---------- DAY GAP SUGGESTIONS ---------- */
+// 해당 날 RECOMMEND 항목 중 아직 plan에 없는 것 반환
+function getDayGapItems(di){
+  const day = RECOMMEND.find(r=>r.dayIdx===di);
+  if(!day) return [];
+  return day.items.filter(it=>!plan[di].items.some(p=>p.title===it.title)).slice(0,4);
+}
+
+function renderDayGap(di, body){
+  const gaps = getDayGapItems(di);
+  if(!gaps.length) return;
+
+  const sec = document.createElement('div');
+  sec.className='day-gap-section';
+  sec.innerHTML=`<div class="day-gap-title">💡 빈 시간 추천</div>`;
+  const list=document.createElement('div'); list.className='day-gap-list';
+
+  gaps.forEach(it=>{
+    const row=document.createElement('div'); row.className='day-gap-item';
+    row.innerHTML=`
+      <span class="day-gap-time">${it.time}</span>
+      <span class="day-gap-name">${it.title}</span>
+      <span class="day-gap-add">＋</span>`;
+    row.addEventListener('click',async()=>{
+      if(plan[di].items.some(p=>p.title===it.title)) return;
+      plan[di].items.push({time:it.time,title:it.title,note:it.note,dist:it.tag||'',_user:true,_lat:it._lat,_lng:it._lng});
+      sortDayByTime(di);
+      await savePlan();
+      renderPlan();
+    });
+    list.appendChild(row);
+  });
+
+  const titleEl=sec.querySelector('.day-gap-title');
+  titleEl.onclick=()=>{ list.style.display=list.style.display==='none'?'flex':'none'; };
+  sec.appendChild(list);
+  body.appendChild(sec);
+}
+
 // 2개 항목 선택 시 지도에 거리선 표시
 function togglePlanSel(di, ii, lat, lng, title, dotEl){
   const key = `${di}-${ii}`;
@@ -735,8 +848,8 @@ const DISTRICT_COLORS = {
   'Holmen':'#3a4a5a','Islands Brygge':'#5d7456','Kongens Nytorv':'#c8492a',
   'Rosengård':'#7a6a3a','Kultur':'#9c3318'
 };
-// 날짜→plan 인덱스 매핑 (페스티벌 3일)
-const FEST_DATE_MAP = {'June 10':3,'June 11':4,'June 12':5};
+// 날짜→plan 인덱스 매핑 (plan[2]=6/10, plan[3]=6/11, plan[4]=6/12)
+const FEST_DATE_MAP = {'June 10':2,'June 11':3,'June 12':4};
 
 const FEST_CATEGORIES = [
   {key:'all',      label:'전체',     icon:'·',  color:'#1a1714'},
@@ -1189,35 +1302,31 @@ function renderPlan(){
         togglePlanSel(di,ii,coords.lat,coords.lng,it.title,dot);
       });
 
-      // 행 클릭 → 지도 이동 + 드로어 열기
+      // 행 클릭 → 지도 경로 시각화 + 드로어 열기
       row.addEventListener('click', e=>{
         if(e.target.matches('[contenteditable],[contenteditable] *,.item-x,.item-sel')) return;
-        // 지도 이동 (좌표 있을 때)
-        if(coords){
-          map.flyTo([coords.lat,coords.lng],15,{duration:.8});
-          const pinIdx = planPinLayer.findIndex(m=>{
-            const ll=m.getLatLng();
-            return Math.abs(ll.lat-coords.lat)<0.0001&&Math.abs(ll.lng-coords.lng)<0.0001;
-          });
-          if(pinIdx>=0) planPinLayer[pinIdx].openPopup();
-        }
-        // 드로어 열기
         openDrawer(di, ii, it.title);
+        showItemRoute(di, ii); // 이전·다음 좌표 기준 경로 + 이동수단 표시
       });
 
       body.appendChild(row);
 
-      // 연속 항목 간 이동거리 표시
-      const next = day.items[ii+1];
-      if(it._lat&&it._lng&&next&&next._lat&&next._lng){
-        const km = Math.hypot(it._lat-next._lat,it._lng-next._lng)*111;
-        const min = Math.max(1,Math.round(km/5*60));
-        const walk = document.createElement('div');
-        walk.className='item-walk';
-        walk.textContent=`도보 약 ${min}분 · ${km.toFixed(1)}km`;
-        body.appendChild(walk);
+      // 연속 항목 간 이동수단 + 거리 표시
+      const nextIt = day.items[ii+1];
+      if(nextIt){
+        const cA = getItemCoords(it), cB = getItemCoords(nextIt);
+        if(cA && cB){
+          const t = transportBetween(cA, cB);
+          const walk = document.createElement('div');
+          walk.className='item-walk';
+          walk.innerHTML=`<span class="item-walk-icon">${t.icon}</span><span class="item-walk-label">${t.label}</span> ~${t.mins}분 · ${t.km.toFixed(1)}km`;
+          body.appendChild(walk);
+        }
       }
     });
+
+    // 빈 시간 추천 섹션
+    renderDayGap(di, body);
 
     const add=document.createElement('button'); add.className='add-item'; add.textContent='+ 일정 추가';
     add.addEventListener('click',()=>{
@@ -1604,11 +1713,12 @@ function placeOptimally(place){
   }
 
   // 시간 결정: preferTime 있으면 사용, 없으면 해당 날 마지막 시간 뒤 슬롯
+  const transportIcon = {도보:'🚶',자전거:'🚴',대중교통:'🚌',지하철:'🚇'}[place.transport]||'';
   const newItem={
     time: place.preferTime || suggestTime(targetDay),
     title: place.title,
     note: place.note || '',
-    dist: dk ? ('↔ '+(DISTRICTS.find(d=>d.key===dk)?.name||'')) : '',
+    dist: [transportIcon, dk ? ('↔ '+(DISTRICTS.find(d=>d.key===dk)?.name||'')) : ''].filter(Boolean).join(' '),
     _dk: dk,
     _user: true,
     _lat: place.lat, _lng: place.lng
@@ -1690,7 +1800,8 @@ Rules:
 - preferTime: explicit time → "HH:MM", else null
 - note: one-line memo (feature/address hint), "" if none
 For URLs, infer from domain/slug. Make reasonable guesses; use null when truly unknown.
-Output format: {"title":"","lat":null,"lng":null,"districtKey":null,"isFestival":false,"preferTime":null,"note":""}`;
+Output format: {"title":"","lat":null,"lng":null,"districtKey":null,"isFestival":false,"preferTime":null,"note":"","transport":"도보"|"자전거"|"대중교통"|"지하철" (recommended way to reach this place from city center)}
+For transport: under 700m→도보, 700m-2.5km→자전거, 2.5-6km→대중교통, over 6km or suburb→지하철`;
 
   let txt;
   if(ON_CLAUDE){
