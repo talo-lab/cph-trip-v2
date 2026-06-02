@@ -12,7 +12,6 @@
 <style>
   :root{
     --ink:#1a1714;
-    --paper:#f4 efe6;
     --paper:#f5efe4;
     --cream:#fbf7ee;
     --rust:#c8492a;
@@ -855,22 +854,18 @@ function togglePlanSel(di, ii, lat, lng, title, dotEl){
     const a=planSelItems[0], b=planSelItems[1];
     selRouteLayer = L.polyline([[a.lat,a.lng],[b.lat,b.lng]],
       {color:'#d99021',weight:3,opacity:.9,dashArray:'4 4'}).addTo(map);
-    const km = haversineKm(a.lat,a.lng,b.lat,b.lng);
-    const min = Math.max(1,Math.round(km/5*60));
+    const t = transportBetween({lat:a.lat,lng:a.lng},{lat:b.lat,lng:b.lng});
     selRouteLayer.bindPopup(
       `<div class="pop-name">📍 ${a.title} → ${b.title}</div>` +
-      `<div class="pop-desc">직선 ${km.toFixed(2)}km · 도보 약 ${min}분</div>`
+      `<div class="pop-desc">직선 ${t.km.toFixed(2)}km · ${t.icon} ${t.label} 약 ${t.mins}분</div>`
     ).openPopup();
     map.fitBounds([[a.lat,a.lng],[b.lat,b.lng]],{padding:[60,60],maxZoom:15});
   }
 }
 
 /* ---------- FESTIVAL EVENTS DATA ---------- */
-const DISTRICT_COLORS = {
-  'Nordhavn':'#2f6b6b','Frederiksstaden':'#d99021','Christianshavn':'#6d3b54',
-  'Holmen':'#3a4a5a','Islands Brygge':'#5d7456','Kongens Nytorv':'#c8492a',
-  'Rosengård':'#7a6a3a','Kultur':'#9c3318'
-};
+// DISTRICTS 배열에서 색상 조회 (별도 DISTRICT_COLORS 객체 제거)
+function districtColor(name){ return DISTRICTS.find(d=>d.name===name)?.color||'#888'; }
 // 날짜→plan 인덱스 매핑 (plan[2]=6/10, plan[3]=6/11, plan[4]=6/12)
 const FEST_DATE_MAP = {'June 10':2,'June 11':3,'June 12':4};
 
@@ -959,7 +954,7 @@ function openEvModal(ev, id){
   const existing = document.getElementById('evOverlay');
   if(existing){ existing.remove(); return; }
 
-  const dkColor = DISTRICT_COLORS[ev.district]||'#888';
+  const dkColor = districtColor(ev.district);
   const overlay = document.createElement('div');
   overlay.className='ev-overlay'; overlay.id='evOverlay';
 
@@ -1128,11 +1123,13 @@ function renderFest(){
 
   // ── 지구 필터 (구분선)
   const distSep = document.createElement('div'); distSep.style.cssText='width:100%;height:0'; filters.appendChild(distSep);
-  ['all',...Object.keys(DISTRICT_COLORS)].forEach(d=>{
+  const distNames = ['all',...DISTRICTS.map(d=>d.name)];
+  distNames.forEach(d=>{
     const b = document.createElement('button');
+    const c = districtColor(d);
     b.className = 'fest-filter-btn dist-btn' + (festDistFilter===d?' active':'');
     b.textContent = d==='all'?'전체':d;
-    if(d!=='all') b.style.cssText=`border-color:${DISTRICT_COLORS[d]};${festDistFilter===d?'':'color:'+DISTRICT_COLORS[d]}`;
+    if(d!=='all') b.style.cssText=`border-color:${c};${festDistFilter===d?'':'color:'+c}`;
     b.onclick = ()=>{ festDistFilter=d; renderFest(); };
     filters.appendChild(b);
   });
@@ -1157,7 +1154,7 @@ function renderFest(){
     const isChecked = festChecked.has(id);
     const row = document.createElement('div');
     row.className = 'fest-event' + (isChecked?' checked':'');
-    const dkColor = DISTRICT_COLORS[ev.district]||'#888';
+    const dkColor = districtColor(ev.district);
     const catInfo = FEST_CATEGORIES.find(c=>c.key===ev.category)||FEST_CATEGORIES[0];
     row.innerHTML = `
       <input type="checkbox" class="fest-cb" ${isChecked?'checked':''}>
@@ -1804,7 +1801,7 @@ function checkKnown(raw){
 const EXTRACT_CACHE={};
 
 // claude.ai 아티팩트 환경인지 감지 (배포 시엔 /api/extract 사용)
-const ON_CLAUDE = location.hostname.endsWith('claude.ai') || location.hostname.endsWith('claudeusercontent.com') || location.hostname==='localhost' && false;
+const ON_CLAUDE = location.hostname.endsWith('claude.ai') || location.hostname.endsWith('claudeusercontent.com');
 
 async function extractPlace(rawText){
   // 1) 캐시
@@ -1852,6 +1849,8 @@ For transport: under 700m→도보, 700m-2.5km→자전거, 2.5-6km→대중교�
   txt=txt.replace(/```json|```/g,'').trim();
   const obj=JSON.parse(txt);
   obj.source = rawText.startsWith('http')?'링크':'입력';
+  // LRU-lite: 50개 초과 시 가장 오래된 항목 제거
+  if(Object.keys(EXTRACT_CACHE).length>=50) delete EXTRACT_CACHE[Object.keys(EXTRACT_CACHE)[0]];
   EXTRACT_CACHE[rawText]=obj;
   return obj;
 }
@@ -2084,7 +2083,8 @@ Rules:
     }))
   })));
 
-  const context = `Selected item: "${item.title}" on Day ${di} (${plan[di].date} · ${plan[di].tag})
+  const dayLabel = plan[di] ? `${plan[di].date} · ${plan[di].tag}` : `Day ${di}`;
+  const context = `Selected item: "${item.title}" on ${dayLabel}
 Full plan JSON:
 ${planJson}
 
