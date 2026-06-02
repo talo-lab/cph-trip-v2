@@ -1,5 +1,5 @@
 // Vercel Serverless: /api/auth
-import crypto from 'crypto';
+// crypto import 없이 globalThis.crypto 사용 (Node 18+ / Vercel 기본 런타임)
 
 function getKv() {
   // 1) Vercel KV (REST)
@@ -56,7 +56,10 @@ export default async function handler(req, res) {
       const kv = getKv();
       if (!kv) return res.status(500).json({ error: 'KV 스토리지 미연결 — 환경변수를 확인하세요 (REDIS_URL 또는 KV_REST_API_URL)' });
 
-      const token = crypto.randomBytes(24).toString('hex');
+      // globalThis.crypto: Node 18+ 기본 제공, import 불필요
+      const buf = new Uint8Array(24);
+      globalThis.crypto.getRandomValues(buf);
+      const token = [...buf].map(b=>b.toString(16).padStart(2,'0')).join('');
       await kvSet(kv, `session:${token}`, { user, created: Date.now() }, SESSION_TTL);
       return res.json({ token, user });
     }
