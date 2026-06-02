@@ -403,6 +403,53 @@
   .item{cursor:pointer}
   .item:hover .item-sel{border-color:var(--rust)}
 
+  /* ============ RECOMMEND TAB ============ */
+  .rec-wrap{padding:0 0 80px}
+  .rec-intro{padding:14px 20px 10px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,var(--ink),#2d3a2e)}
+  .rec-intro h3{font-family:'Fraunces',serif;font-size:17px;color:var(--cream);margin-bottom:3px}
+  .rec-intro p{font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.4}
+  .rec-day{border-bottom:2px solid var(--line)}
+  .rec-day-head{
+    display:flex;align-items:baseline;gap:10px;padding:12px 20px 6px;
+    background:var(--cream);cursor:pointer;user-select:none;position:sticky;top:0;z-index:1;
+    border-bottom:1px solid var(--line);
+  }
+  .rec-day-head:hover{background:#f0ebe0}
+  .rec-day-num{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;background:var(--slate);color:var(--cream);padding:2px 6px}
+  .rec-day-num.fest{background:var(--rust)}
+  .rec-day-date{font-family:'Fraunces',serif;font-size:17px;font-weight:600}
+  .rec-day-tag{font-size:11px;color:var(--slate);margin-left:auto}
+  .rec-day-add{
+    font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;
+    padding:4px 8px;border:1.5px solid var(--rust);color:var(--rust);background:none;
+    cursor:pointer;transition:.15s;white-space:nowrap;
+  }
+  .rec-day-add:hover{background:var(--rust);color:#fff}
+  .rec-day-add.done{background:var(--sage);border-color:var(--sage);color:#fff}
+  .rec-items{padding:4px 0 8px}
+  .rec-item{
+    display:flex;gap:10px;padding:8px 20px;border-bottom:1px dashed var(--line);
+    cursor:pointer;transition:.1s;align-items:flex-start;
+  }
+  .rec-item:hover{background:rgba(0,0,0,.03)}
+  .rec-item.added{background:rgba(93,116,86,.08)}
+  .rec-item-cb{width:15px;height:15px;flex-shrink:0;accent-color:var(--rust);margin-top:2px;cursor:pointer}
+  .rec-item-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--rust-deep);font-weight:700;white-space:nowrap;min-width:48px;padding-top:2px}
+  .rec-item-main{flex:1;min-width:0}
+  .rec-item-title{font-size:13px;font-weight:600;line-height:1.25;margin-bottom:2px}
+  .rec-item-note{font-size:11.5px;color:var(--slate);line-height:1.35}
+  .rec-item-tag{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:2px;color:#fff;margin-top:3px}
+  .rec-footer{
+    position:sticky;bottom:0;padding:10px 16px;background:var(--cream);
+    border-top:2px solid var(--ink);display:flex;gap:8px;align-items:center;
+  }
+  .rec-apply-btn{
+    flex:1;padding:10px;background:var(--ink);color:var(--cream);border:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.05em;transition:.15s;
+  }
+  .rec-apply-btn:hover{background:var(--rust)}
+  .rec-sel-count{font-family:'Space Mono',monospace;font-size:11px;color:var(--slate);white-space:nowrap}
+
   /* ============ CONFLICT CARD ============ */
   .conflict-card{
     margin-top:12px;padding:13px 14px;border-left:3px solid var(--ochre);background:#fff8ea;
@@ -475,6 +522,7 @@
 
     <div class="tabs">
       <button class="tab active" data-tab="plan">일정</button>
+      <button class="tab" data-tab="rec">추천</button>
       <button class="tab" data-tab="fest">행사</button>
       <button class="tab" data-tab="add">＋장소</button>
       <button class="tab" data-tab="dist">지구</button>
@@ -537,58 +585,48 @@ const STAY = {
 };
 
 const DEFAULT_PLAN = [
+  // DAY 0 — 6/8
   {date:'6/8 (월)', tag:'인천 출발', fest:false, items:[
-    {time:'22:25', title:'[미주] ICN → AMS 출발', note:'KE5925 (KLM 운항·B787-9) · 13h45m · 암스테르담 경유', dist:''},
-    {time:'23:35', title:'[상효] ICN(T2) → CPH 직항 출발', note:'SAS SK0988 · 13h25m · 좌석 31F', dist:''},
+    {time:'22:25', title:'[미주] ICN → AMS 출발', note:'KE5925 (KLM 운항·B787-9) · 13h45m · 암스테르담 경유', dist:'', _fixed:true},
+    {time:'23:35', title:'[상효] ICN(T2) → CPH 직항 출발', note:'SAS SK0988 · 13h25m · 좌석 31F', dist:'', _fixed:true},
   ]},
+  // DAY 1 — 6/9
   {date:'6/9 (화)', tag:'코펜하겐 도착', fest:false, items:[
-    {time:'06:00', title:'[상효] 코펜하겐(CPH·T3) 도착', note:'SAS 직항 · 메트로 M2로 도심 이동', dist:''},
-    {time:'08:30', title:'[미주] 코펜하겐(CPH·T2) 도착', note:'AMS 환승(KL1267) 후 도착 · 공항에서 합류', dist:''},
-    {time:'오전', title:'베스테르브로 숙소 짐 보관', note:'중앙역 900m · 체크인은 15:00부터', dist:'중앙역 도보'},
-    {time:'15:00', title:'Airbnb 체크인 (베스테르브로)', note:'상트요르겐스 호수 근처 현대적 아파트', dist:'숙소'},
+    {time:'06:00', title:'[상효] CPH(T3) 도착', note:'SAS 직항 · 메트로 M2로 도심 이동', dist:'', _fixed:true},
+    {time:'08:30', title:'[미주] CPH(T2) 도착', note:'AMS 환승(KL1267) 후 도착 · 공항에서 합류', dist:'', _fixed:true},
+    {time:'오전', title:'베스테르브로 숙소 짐 보관', note:'중앙역 900m · 체크인은 15:00부터', dist:''},
+    {time:'15:00', title:'Airbnb 체크인 (베스테르브로)', note:'상트요르겐스 호수 근처 현대적 아파트', dist:''},
+    {time:'16:00', title:'Installation', note:'Fredericiagade 57, 1310 Copenhagen K · 설치 미술 감상', dist:'', _lat:55.6844, _lng:12.5903, _fixed:true},
     {time:'오후', title:'시차 적응 산책 · 뉘하운(Nyhavn)', note:'무리하지 않기 · 가벼운 도심 워킹', dist:''},
   ]},
+  // DAY 2 — 6/10 (Festival Day 1)
   {date:'6/10 (수)', tag:'페스티벌 1일차', fest:true, items:[
-    {time:'10:00', title:'Kongens Nytorv 지구', note:'도심 핵심 쇼룸부터 시작 · Arper 외', dist:'시작점'},
-    {time:'12:30', title:'Rosengård 지구', note:'Fritz Hansen 이벤트 · 도보 8분', dist:'도보 8분'},
-    {time:'14:30', title:'Frederiksstaden 지구', note:'왕실 지구 쇼룸 · 오프닝 분위기', dist:'도보 12분'},
-    {time:'16:00', title:'페스티벌 마무리 · 숙소 근처로 이동', note:'17시 다이닝 위해 베스테르브로로 복귀 (메트로/택시)', dist:'베스테르브로'},
     {time:'17:00', title:'🍽 Food & Music with SALU (예약 완료)', note:'소셜 다이닝 3명 · Folkehuset Absalon, Sønder Blvd. 73 · 17:00–20:00 · QR코드 보유 · 숙소 도보권', dist:'고정 일정', _lat:55.665398, _lng:12.550298, _fixed:true},
   ]},
-  {date:'6/11 (목)', tag:'페스티벌 2일차', fest:true, items:[
-    {time:'10:00', title:'Nordhavn 지구', note:'페스티벌 발상지 · 미래지향 전시', dist:'메트로 M4'},
-    {time:'14:00', title:'Islands Brygge 지구', note:'하버프론트 · 자전거 이동 추천', dist:'자전거 20분'},
-    {time:'저녁', title:'하버 사이드 디너 · 수영(선택)', note:'Islands Brygge 하버바스', dist:''},
-  ]},
-  {date:'6/12 (금)', tag:'페스티벌 3일차', fest:true, items:[
-    {time:'10:00', title:'Designmuseum Danmark', note:'3일 프로그램 · 전시·토크·워크숍', dist:'필수 코스'},
-    {time:'12:30', title:'Christianshavn 지구', note:'운하 지구 쇼룸 · 보트 이동 가능', dist:'도보 10분'},
-    {time:'14:30', title:'Holmen 지구', note:'옛 해군기지 · 건축 명소', dist:'도보/보트'},
-    {time:'16:00', title:'Kultur 지구 · 클로징', note:'디자인 토크 마무리 · 클로징 파티', dist:''},
-  ]},
-  {date:'6/13 (토)', tag:'자유 관광', fest:false, items:[
-    {time:'오전', title:'티볼리 / 못 본 쇼룸 보충', note:'관심 브랜드 재방문', dist:''},
-    {time:'오후', title:'디자인 숍 · 카페 투어', note:'Hay House, Illums Bolighus 등', dist:''},
-  ]},
-  {date:'6/14 (일)', tag:'근교 / 미술관', fest:false, items:[
-    {time:'종일', title:'Louisiana 현대미술관 (선택)', note:'기차 약 35분 · 북유럽 디자인 명소', dist:'당일치기'},
-  ]},
-  {date:'6/15 (월)', tag:'자유 일정', fest:false, items:[
-    {time:'종일', title:'예비일 · 자유 탐방', note:'직접 일정을 추가해 보세요', dist:''},
-  ]},
+  // DAY 3 — 6/11 (Festival Day 2)
+  {date:'6/11 (목)', tag:'페스티벌 2일차', fest:true, items:[]},
+  // DAY 4 — 6/12 (Festival Day 3)
+  {date:'6/12 (금)', tag:'페스티벌 3일차', fest:true, items:[]},
+  // DAY 5 — 6/13
+  {date:'6/13 (토)', tag:'자유 관광', fest:false, items:[]},
+  // DAY 6 — 6/14
+  {date:'6/14 (일)', tag:'근교 / 미술관', fest:false, items:[]},
+  // DAY 7 — 6/15
+  {date:'6/15 (월)', tag:'자유 일정', fest:false, items:[]},
+  // DAY 8 — 6/16
   {date:'6/16 (화)', tag:'귀국 (출국일)', fest:false, items:[
-    {time:'~11:00', title:'Airbnb 체크아웃', note:'체크아웃 11:00 전 · 베스테르브로 · 짐 정리', dist:'숙소'},
-    {time:'오전', title:'마지막 산책 · 기념품 (함께)', note:'14시 이전까지 도심에서 함께 보내기', dist:''},
-    {time:'~14:30', title:'[미주] 공항 이동 → 체크인', note:'16:40 출발편 · 2시간 전 도착 권장', dist:'먼저 출발'},
-    {time:'16:40', title:'[미주] CPH → LHR 출발', note:'SK1517 · 런던 경유 후 6/17 16:15 ICN 도착', dist:''},
-    {time:'오후~저녁', title:'[상효] 도심 자유시간', note:'미주 출발 후 늦은 출국까지 여유 · 카페·디너', dist:''},
-    {time:'~21:30', title:'[상효] 공항 이동 (CPH·T3)', note:'23:55 출발편 · 2시간 전 도착', dist:'늦게 출발'},
-    {time:'23:55', title:'[상효] CPH → ICN 직항 출발', note:'SAS SK0987 · 11h40m · 6/17 18:35 ICN 도착', dist:''},
+    {time:'~11:00', title:'Airbnb 체크아웃', note:'체크아웃 11:00 전 · 짐 정리', dist:''},
+    {time:'오전', title:'마지막 산책 · 기념품', note:'14시 이전까지 도심에서 함께', dist:''},
+    {time:'~14:30', title:'[미주] 공항 이동', note:'16:40 출발편 · 2시간 전 도착 권장', dist:'', _fixed:true},
+    {time:'16:40', title:'[미주] CPH → LHR 출발', note:'SK1517 · 런던 경유 후 6/17 16:15 ICN 도착', dist:'', _fixed:true},
+    {time:'오후~저녁', title:'[상효] 도심 자유시간', note:'미주 출발 후 늦은 출국까지 여유', dist:''},
+    {time:'~21:30', title:'[상효] 공항 이동 (CPH·T3)', note:'23:55 출발편 · 2시간 전 도착', dist:'', _fixed:true},
+    {time:'23:55', title:'[상효] CPH → ICN 직항 출발', note:'SAS SK0987 · 11h40m · 6/17 18:35 ICN 도착', dist:'', _fixed:true},
   ]},
 ];
 
 /* ---------- STATE / PERSISTENCE ---------- */
-const STORE_KEY = 'cph_design_plan_v3';
+const STORE_KEY = 'cph_design_plan_v4';
 let plan;
 async function loadPlan(){
   try{
@@ -1204,6 +1242,238 @@ function renderPlan(){
   };
 }
 
+/* ---------- RECOMMEND DATA ---------- */
+// 날짜인덱스: 0=6/8, 1=6/9, 2=6/10, 3=6/11, 4=6/12, 5=6/13, 6=6/14, 7=6/15, 8=6/16
+const RECOMMEND = [
+  { dayIdx:1, label:'DAY 1', date:'6/9 (화)', tag:'도착일', fest:false,
+    theme:'긴 이동 후 가볍게 — 설치미술 & 뉘하운',
+    items:[
+      {time:'09:00', title:'시차 극복 산책 — Istedgade 카페', note:'베스테르브로 로컬 카페에서 커피 한 잔, 동네 분위기 파악', tag:'☕ 다이닝', color:'#7a4a1e'},
+      {time:'10:30', title:'Torvehallerne 마켓', note:'코펜하겐 최대 푸드마켓 — 스모레브레드, 신선 식재료 둘러보기', tag:'☕ 다이닝', color:'#7a4a1e', _lat:55.6836, _lng:12.5713},
+      {time:'13:00', title:'Nørreport 인근 산책', note:'빌라 주거지구 골목 워킹 — 코펜하겐 일상 풍경', tag:'🚶 투어', color:'#3a4a5a'},
+      {time:'16:00', title:'Installation (관람)', note:'Fredericiagade 57, 1310 Copenhagen K — 16:00-16:30 CET', tag:'🏛 전시', color:'#6d3b54', _lat:55.6844, _lng:12.5903},
+      {time:'17:30', title:'뉘하운(Nyhavn) 운하 산책', note:'컬러풀 건물과 운하 — 저녁 조명이 아름다운 코펜하겐 상징', tag:'🚶 투어', color:'#3a4a5a', _lat:55.6797, _lng:12.5913},
+      {time:'19:30', title:'저녁식사 — Nyhavn 인근', note:'Noma 예약 없다면 운하변 비스트로 추천 · 내일 페스티벌을 위해 일찍 귀숙', tag:'☕ 다이닝', color:'#7a4a1e'},
+    ]
+  },
+  { dayIdx:2, label:'DAY 2', date:'6/10 (수)', tag:'페스티벌 1일차', fest:true,
+    theme:'Frederiksstaden + Kongens Nytorv — 왕실지구 & 도심 핵심',
+    items:[
+      {time:'09:00', title:'Designers Panel: Art & Design (Paper Collective)', note:'Bredgade 71 — 아트와 디자인 통합 시각 패널 토크', tag:'💬 토크', color:'#2f6b6b', _lat:55.6840, _lng:12.5890},
+      {time:'09:30', title:'Exclusive Talk: Norm Architects (Søuld)', note:'Esplanaden 8b — 소재와 형태에 관한 심층 대화', tag:'💬 토크', color:'#2f6b6b', _lat:55.6848, _lng:12.5912},
+      {time:'10:30', title:'Designmuseum Danmark — Vibskov Pavilion 오프닝', note:'Bredgade 68 — Søren Vibskov 파빌리온 & 상설 컬렉션', tag:'🏛 전시', color:'#6d3b54', _lat:55.6866, _lng:12.5928},
+      {time:'12:00', title:'점심 — Kongens Nytorv 인근 카페', note:'광장 주변 로컬 런치 · 에너지 보충 후 오후 쇼룸 집중 방문', tag:'☕ 다이닝', color:'#7a4a1e'},
+      {time:'13:00', title:'Fritz Hansen Listening Lounge', note:'Løvstræde 5 — 오디오+디자인 종일 체험 공간 · 아이코닉 가구 감상', tag:'🏛 전시', color:'#6d3b54', _lat:55.6795, _lng:12.5773},
+      {time:'14:00', title:'Georg Jensen — Playdate', note:'Amagertorv 4 — 테이블웨어·주얼리 인터랙티브 체험', tag:'🏛 전시', color:'#6d3b54', _lat:55.6789, _lng:12.5800},
+      {time:'14:30', title:'Hay House 플래그십', note:'Pilestræde — 덴마크 대표 디자인 브랜드 플래그십 스토어', tag:'🏛 전시', color:'#6d3b54', _lat:55.6794, _lng:12.5797},
+      {time:'15:30', title:'Illums Bolighus', note:'Amagertorv 10 — 북유럽 디자인 백화점 · 기념품 리스트업', tag:'🏛 전시', color:'#6d3b54', _lat:55.6789, _lng:12.5800},
+      {time:'16:00', title:'베스테르브로 복귀 이동', note:'메트로/도보 · 17시 SALU 다이닝 준비', tag:'🚶 투어', color:'#3a4a5a'},
+    ]
+  },
+  { dayIdx:3, label:'DAY 3', date:'6/11 (목)', tag:'페스티벌 2일차', fest:true,
+    theme:'Nordhavn + Islands Brygge — 항구재생 & 하버프론트',
+    items:[
+      {time:'08:00', title:'Guided Breathwork at the Harbour (Rockfon)', note:'Sundkaj 163 — 항구 아침 호흡 명상 · 상쾌하게 하루 시작', tag:'🧘 웰니스', color:'#9c3318', _lat:55.7126, _lng:12.5927},
+      {time:'09:00', title:'Morning Design Talks: OEO Studio (Time & Style)', note:'Orientkaj 22 — 현대 인테리어 스튜디오 OEO 작업 소개', tag:'💬 토크', color:'#2f6b6b', _lat:55.7120, _lng:12.5940},
+      {time:'10:00', title:'GUBI Nordhavn 그랜드 오프닝', note:'Orientkaj 18-20 — 이탈리아×북유럽 디자인의 만남 · 하이라이트', tag:'🏛 전시', color:'#6d3b54', _lat:55.7126, _lng:12.5927},
+      {time:'11:00', title:'The Power of Daylight (VELUX)', note:'Århusgade 126 — 자연광과 디자인·웰빙의 관계 아티스트 토크', tag:'💬 토크', color:'#2f6b6b', _lat:55.7120, _lng:12.5921},
+      {time:'12:30', title:'점심 — FORM BAR at FORMARKIVET', note:'Århusgade 128D — 디자인 마켓플레이스 레스토랑, 인근 쇼룸 둘러보기', tag:'☕ 다이닝', color:'#7a4a1e', _lat:55.7120, _lng:12.5920},
+      {time:'14:00', title:'Islands Brygge 이동 (메트로/자전거)', note:'M4 Orientkaj → Islands Brygge 환승 또는 자전거 20분', tag:'🚶 투어', color:'#3a4a5a'},
+      {time:'14:30', title:'PP Møbler 쇼룸', note:'Bryggernes Plads 11 — Hans J. Wegner 가구의 정수 · 장인 정신 감상', tag:'🏛 전시', color:'#6d3b54', _lat:55.6641, _lng:12.5731},
+      {time:'15:30', title:'UMAGE — BREAKFAST CLUB 방문', note:'Havnegade 29 — 조명 브랜드 쇼룸 · 스칸디나비안 감성', tag:'🏛 전시', color:'#6d3b54', _lat:55.6741, _lng:12.5797},
+      {time:'17:00', title:'Evening Talk: The Future of Scandinavian Design', note:'Nordhavn — 스칸디나비아 디자인 미래를 전망하는 저녁 토크', tag:'💬 토크', color:'#2f6b6b'},
+      {time:'저녁', title:'Islands Brygge 하버바스 수영 (선택)', note:'무료 공공 수영장 · 일몰 감상 · 코펜하겐 여름의 하이라이트', tag:'🧘 웰니스', color:'#9c3318', _lat:55.6641, _lng:12.5731},
+    ]
+  },
+  { dayIdx:4, label:'DAY 4', date:'6/12 (금)', tag:'페스티벌 3일차', fest:true,
+    theme:'Holmen + Christianshavn — 섬 지구 & 페스티벌 클로징',
+    items:[
+      {time:'08:30', title:'Final Morning Yoga (HUBBUB, Holmen)', note:'Kanonbådsvej 4A — 페스티벌 마지막 날 아침 요가', tag:'🧘 웰니스', color:'#9c3318', _lat:55.6885, _lng:12.6110},
+      {time:'09:15', title:'Design Talk: PH Lamp (Louis Poulsen)', note:'Kuglegårdsvej 19-23 — PH 램프의 역사와 현재 · 필수 토크', tag:'💬 토크', color:'#2f6b6b', _lat:55.6875, _lng:12.6118},
+      {time:'10:00', title:'FANZI Pavilion — Slow Writing & Stack', note:'Posten 6 — 캘리그라피 시연 + MOTO의 모듈 디자인 토크 연속 관람', tag:'🏛 전시', color:'#6d3b54', _lat:55.6883, _lng:12.6102},
+      {time:'11:00', title:'BAUX 가이드 투어', note:'Papirøen 5 — 어쿠스틱 패널 디자인 혁신 · 건축 자재의 미래', tag:'🚶 투어', color:'#3a4a5a', _lat:55.6888, _lng:12.6098},
+      {time:'11:30', title:'Head Outside — XD Outdoor Launch (The Form Follows)', note:'Café Niko, Papirøen 81 — 아웃도어 가구 런칭 이벤트', tag:'🚀 런칭', color:'#d99021', _lat:55.6890, _lng:12.6095},
+      {time:'12:30', title:'점심 — Reffen 스트리트푸드', note:'세계 최대 스트리트푸드 마켓 · 다양한 나라 음식 · Holmen 옆', tag:'☕ 다이닝', color:'#7a4a1e', _lat:55.6915, _lng:12.6045},
+      {time:'14:00', title:'Christianshavn 이동 — Ege Carpets', note:'Christianshavns Kanal 4 — 운하변 카펫 브랜드 · 크리스티안스하운 시작', tag:'🏛 전시', color:'#6d3b54', _lat:55.6737, _lng:12.5892},
+      {time:'15:00', title:'House of Finn Juhl × Edition — Artistry of Craftsmanship', note:'Strandgade 66 — 핀 율 가구 장인 정신 전시 · 페스티벌 최고 하이라이트 중 하나', tag:'🏛 전시', color:'#6d3b54', _lat:55.6732, _lng:12.5888},
+      {time:'16:00', title:'Closing Symposium: Make This Moment Matter', note:'페스티벌 클로징 심포지엄 · 참가 가능 시 참석 권장', tag:'💬 토크', color:'#2f6b6b'},
+      {time:'저녁', title:'페스티벌 클로징 파티 & 기념 디너', note:'참가 브랜드들의 클로징 이벤트 탐방 · 페스티벌 마지막 밤', tag:'☕ 다이닝', color:'#7a4a1e'},
+    ]
+  },
+  { dayIdx:5, label:'DAY 5', date:'6/13 (토)', tag:'자유 관광 — 코펜하겐 클래식', fest:false,
+    theme:'못 본 쇼룸 보충 + 코펜하겐 관광 명소',
+    items:[
+      {time:'10:00', title:'티볼리 가든 (Tivoli Gardens)', note:'코펜하겐 중앙역 바로 옆 · 세계에서 가장 오래된 놀이공원 · 낮 분위기 추천', tag:'🚶 투어', color:'#3a4a5a', _lat:55.6736, _lng:12.5681},
+      {time:'12:30', title:'점심 — 중앙역 인근', note:'Riz Raz (채식 뷔페) 또는 Mikkeller 펍 · 가벼운 코펜하겐 런치', tag:'☕ 다이닝', color:'#7a4a1e'},
+      {time:'14:00', title:'Rundetårn (둥근탑) 전망대', note:'Købmagergade 52A — 나선형 램프 등반 · 코펜하겐 전경', tag:'🚶 투어', color:'#3a4a5a', _lat:55.6814, _lng:12.5757},
+      {time:'15:30', title:'Strøget 쇼핑가 — 디자인 숍 투어', note:'Hay, Georg Jensen, Royal Copenhagen 등 · 기념품 쇼핑', tag:'🏛 전시', color:'#6d3b54'},
+      {time:'17:00', title:'인어공주 동상 (Little Mermaid)', note:'Langelinie — 코펜하겐 상징 · 항구 산책', tag:'🚶 투어', color:'#3a4a5a', _lat:55.6929, _lng:12.5993},
+      {time:'19:00', title:'저녁식사 — Nørrebro 로컬 레스토랑', note:'젊은 감각의 레스토랑 밀집 지역 · Relæ, Manfreds 등 추천', tag:'☕ 다이닝', color:'#7a4a1e'},
+    ]
+  },
+  { dayIdx:6, label:'DAY 6', date:'6/14 (일)', tag:'근교 당일치기 — Louisiana', fest:false,
+    theme:'Louisiana 현대미술관 + 해안선 드라이브',
+    items:[
+      {time:'10:00', title:'코펜하겐 중앙역 → Louisiana 기차 출발', note:'Humlebæk 역 하차 · 약 35분 · InterCity 또는 Lyn 열차', tag:'🚶 투어', color:'#3a4a5a'},
+      {time:'10:45', title:'Louisiana 현대미술관 도착', note:'GL Strandvej 13, Humlebæk — 해안절벽 위 건축 · 북유럽 최고 미술관', tag:'🏛 전시', color:'#6d3b54', _lat:55.9695, _lng:12.5430},
+      {time:'11:00', title:'Louisiana 관람 — 상설 컬렉션', note:'Giacometti, Calder, Moore 등 거장 조각 · 바다 조망 테라스 산책', tag:'🏛 전시', color:'#6d3b54', _lat:55.9695, _lng:12.5430},
+      {time:'13:00', title:'Louisiana 레스토랑 런치', note:'미술관 내 바다 전망 레스토랑 · 덴마크 오픈 샌드위치 추천', tag:'☕ 다이닝', color:'#7a4a1e'},
+      {time:'14:30', title:'Louisiana 관람 — 기획전 & 조각공원', note:'야외 조각공원 산책 · 바다와 숲이 어우러진 공간 · 사진 명소', tag:'🏛 전시', color:'#6d3b54'},
+      {time:'17:00', title:'코펜하겐 귀환 기차', note:'Humlebæk → 코펜하겐 중앙역 · 저녁 자유 시간', tag:'🚶 투어', color:'#3a4a5a'},
+      {time:'19:30', title:'저녁식사 — 베스테르브로 인근', note:'숙소 근처 · Kødbyen (고기 지구) 레스토랑 탐방', tag:'☕ 다이닝', color:'#7a4a1e'},
+    ]
+  },
+  { dayIdx:7, label:'DAY 7', date:'6/15 (월)', tag:'자유 + 정리', fest:false,
+    theme:'마지막 코펜하겐 탐방 & 짐 정리',
+    items:[
+      {time:'10:00', title:'Designmuseum Danmark 여유롭게 재방문', note:'Bredgade 68 — 페스티벌 중 바빴다면 오늘 천천히 감상', tag:'🏛 전시', color:'#6d3b54', _lat:55.6866, _lng:12.5928},
+      {time:'12:00', title:'점심 — Bredgade 인근 카페', note:'왕실지구 골목 카페 · 편안한 마지막 코펜하겐 런치', tag:'☕ 다이닝', color:'#7a4a1e'},
+      {time:'13:30', title:'Fritz Hansen 플래그십 스토어 & Fredericia', note:'Løvstræde — 구매 결정 못한 디자인 아이템 최종 쇼핑', tag:'🏛 전시', color:'#6d3b54', _lat:55.6795, _lng:12.5773},
+      {time:'15:00', title:'Nyhavn 마지막 산책 & 기념사진', note:'운하변 카페에서 커피 · 코펜하겐과 작별 인사', tag:'🚶 투어', color:'#3a4a5a', _lat:55.6797, _lng:12.5913},
+      {time:'17:00', title:'숙소 복귀 & 짐 정리', note:'내일 체크아웃 준비 · 구매 물품 정리 · 이른 취침 권장', tag:'🚶 투어', color:'#3a4a5a'},
+    ]
+  },
+];
+
+let recChecked = new Set(); // "dayIdx-i" 형태
+
+/* ---------- RENDER: RECOMMEND ---------- */
+function renderRecommend(){
+  const el = document.getElementById('scroll');
+  el.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'rec-wrap';
+
+  const intro = document.createElement('div');
+  intro.className = 'rec-intro';
+  intro.innerHTML = `<h3>✦ 추천 여행 일정</h3><p>3 Days of Design 핵심 이벤트 + 코펜하겐 관광을 조합한 큐레이션입니다. 체크 후 "내 일정에 추가"로 일정 탭에 반영하세요.</p>`;
+  wrap.appendChild(intro);
+
+  RECOMMEND.forEach((day)=>{
+    const dayEl = document.createElement('div');
+    dayEl.className = 'rec-day';
+
+    const head = document.createElement('div');
+    head.className = 'rec-day-head';
+
+    const hasDayItems = day.items.length > 0;
+    const allAdded = hasDayItems && day.items.every((_,i)=>recChecked.has(`${day.dayIdx}-${i}`));
+
+    head.innerHTML = `
+      <span class="rec-day-num${day.fest?' fest':''}">${day.label}</span>
+      <span class="rec-day-date">${day.date}</span>
+      <span class="rec-day-tag">${day.tag}</span>
+      <button class="rec-day-add${allAdded?' done':''}" data-day="${day.dayIdx}">
+        ${allAdded?'✓ 전체 선택됨':'하루 전체 선택'}
+      </button>`;
+
+    head.querySelector('.rec-day-add').onclick = e=>{
+      e.stopPropagation();
+      const btn = head.querySelector('.rec-day-add');
+      const nowAll = day.items.every((_,i)=>recChecked.has(`${day.dayIdx}-${i}`));
+      day.items.forEach((_,i)=>{
+        const key=`${day.dayIdx}-${i}`;
+        if(nowAll) recChecked.delete(key); else recChecked.add(key);
+      });
+      renderRecommend();
+    };
+
+    const itemsEl = document.createElement('div');
+    itemsEl.className = 'rec-items';
+
+    if(day.items.length===0){
+      itemsEl.innerHTML = `<div style="padding:12px 20px;font-size:12px;color:var(--slate);opacity:.6">이 날은 비어있어요. 행사 탭이나 +장소 탭에서 직접 추가하세요.</div>`;
+    } else {
+      const themeEl = document.createElement('div');
+      themeEl.style.cssText='padding:6px 20px 4px;font-size:11.5px;color:var(--rust-deep);font-style:italic;border-bottom:1px solid var(--line)';
+      themeEl.textContent = `📍 ${day.theme}`;
+      itemsEl.appendChild(themeEl);
+
+      day.items.forEach((it,i)=>{
+        const key = `${day.dayIdx}-${i}`;
+        const isChecked = recChecked.has(key);
+        const row = document.createElement('div');
+        row.className = 'rec-item' + (isChecked?' added':'');
+        row.innerHTML = `
+          <input type="checkbox" class="rec-item-cb" ${isChecked?'checked':''}>
+          <span class="rec-item-time">${it.time}</span>
+          <div class="rec-item-main">
+            <div class="rec-item-title">${it.title}</div>
+            <div class="rec-item-note">${it.note}</div>
+            <span class="rec-item-tag" style="background:${it.color}">${it.tag}</span>
+          </div>`;
+        const cb = row.querySelector('.rec-item-cb');
+        cb.onchange = ()=>{
+          if(cb.checked) recChecked.add(key); else recChecked.delete(key);
+          row.classList.toggle('added', cb.checked);
+          updateRecFooter();
+        };
+        row.addEventListener('click', e=>{ if(e.target!==cb){ cb.checked=!cb.checked; cb.onchange(); } });
+        itemsEl.appendChild(row);
+      });
+    }
+
+    dayEl.appendChild(head);
+    dayEl.appendChild(itemsEl);
+    wrap.appendChild(dayEl);
+  });
+
+  el.appendChild(wrap);
+  updateRecFooter();
+}
+
+function updateRecFooter(){
+  let footer = document.getElementById('recFooter');
+  if(!footer){
+    footer = document.createElement('div');
+    footer.className = 'rec-footer';
+    footer.id = 'recFooter';
+    const cnt = document.createElement('span');
+    cnt.className = 'rec-sel-count';
+    cnt.id = 'recCount';
+    const btn = document.createElement('button');
+    btn.className = 'rec-apply-btn';
+    btn.id = 'recApplyBtn';
+    btn.onclick = applyRecItems;
+    footer.appendChild(cnt);
+    footer.appendChild(btn);
+    document.getElementById('scroll').appendChild(footer);
+  }
+  const n = recChecked.size;
+  document.getElementById('recCount').textContent = n > 0 ? `${n}개 선택` : '';
+  document.getElementById('recApplyBtn').textContent = n > 0 ? `내 일정에 추가 →` : '항목을 선택하세요';
+  document.getElementById('recApplyBtn').disabled = n === 0;
+}
+
+async function applyRecItems(){
+  let added = 0;
+  RECOMMEND.forEach(day=>{
+    day.items.forEach((it,i)=>{
+      const key = `${day.dayIdx}-${i}`;
+      if(!recChecked.has(key)) return;
+      const di = day.dayIdx;
+      if(!plan[di]) return;
+      if(plan[di].items.some(p=>p.title===it.title)) return;
+      plan[di].items.push({
+        time: it.time,
+        title: it.title,
+        note: it.note,
+        dist: it.tag||'',
+        _user: true,
+        _lat: it._lat||undefined,
+        _lng: it._lng||undefined,
+      });
+      sortDayByTime(di);
+      added++;
+    });
+  });
+  await savePlan();
+  recChecked.clear();
+  const btn = document.getElementById('recApplyBtn');
+  if(btn){ btn.textContent=`✓ ${added}개 일정에 추가됐어요!`; btn.disabled=true; }
+  setTimeout(()=>renderRecommend(), 1500);
+}
+
 /* ---------- RENDER: DISTRICTS ---------- */
 function renderDist(){
   const el=document.getElementById('scroll'); el.innerHTML='';
@@ -1732,6 +2002,9 @@ function setTab(t){
   if(t==='plan'){
     document.getElementById('scroll').style.cssText='';
     renderPlan();
+  } else if(t==='rec'){
+    document.getElementById('scroll').style.cssText='';
+    renderRecommend();
   } else if(t==='fest'){
     renderFest();
   } else if(t==='add'){
