@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <style>
   :root{
     --ink:#1a1714;
@@ -568,6 +569,21 @@
   .drawer-status.show{display:block}
   .drawer-status.ok{color:var(--sage)}
   .drawer-status.err{color:var(--rust)}
+
+  /* ============ DRAG & DROP ============ */
+  .drag-handle{
+    cursor:grab;color:var(--line);font-size:14px;padding:2px 3px;
+    opacity:0;transition:.12s;align-self:center;flex-shrink:0;
+    line-height:1;user-select:none;touch-action:none;
+  }
+  .item:hover .drag-handle{opacity:.6}
+  .drag-handle:hover{opacity:1!important;color:var(--slate)}
+  .drag-handle:active{cursor:grabbing}
+  .item.sortable-ghost{opacity:.35;background:rgba(200,73,42,.07);border-left:3px solid var(--rust);padding-left:8px}
+  .item.sortable-chosen{box-shadow:0 4px 16px rgba(0,0,0,.13);z-index:10;position:relative}
+  .item.sortable-drag{opacity:1;background:var(--cream);border:1.5px solid var(--rust);box-shadow:0 6px 20px rgba(0,0,0,.18)}
+  /* 드롭 가능 영역 하이라이트 */
+  .day-body.drag-over{background:rgba(200,73,42,.03);outline:1.5px dashed var(--rust);outline-offset:-4px}
 
   /* ============ LOGIN SCREEN ============ */
   .login-screen{
@@ -1493,10 +1509,13 @@ function renderFest(){
     const titleEl = row.querySelector('.fest-title-link');
 
     cb.onchange = ()=>{
-      if(cb.checked) festChecked.add(id); else festChecked.delete(id);
+      if(cb.checked){ festChecked.add(id); showFestMarker(ev, id); }
+      else { festChecked.delete(id); hideFestMarker(id); }
       row.classList.toggle('checked', cb.checked);
       updateFestBar();
     };
+    // 이미 체크된 항목은 렌더 시 마커 복원
+    if(isChecked) showFestMarker(ev, id);
 
     // 즐겨찾기 토글
     const favBtnEl = row.querySelector('.fav-btn');
@@ -1580,6 +1599,7 @@ async function addFestSelected(){
 
   await savePlan();
   festChecked.clear();
+  clearFestMarkers();
 
   // 피드백 + 일정 탭 갱신 (백그라운드)
   const btn = document.getElementById('festAddBtn');
@@ -1620,7 +1640,7 @@ function renderPlan(){
         <span class="day-tag">${day.tag}</span>
       </div>
       <div class="day-progress"><div class="day-progress-bar" id="prog-${di}" style="width:0%"></div></div>
-      <div class="day-body" id="body-${di}"></div>`;
+      <div class="day-body" id="body-${di}" data-di="${di}"></div>`;
     el.appendChild(d);
     const body = d.querySelector(`#body-${di}`);
 
@@ -1631,8 +1651,8 @@ function renderPlan(){
       const coords = getItemCoords(it);
       const row = document.createElement('div');
       row.className='item'+(it._user?' user-added':'')+(it._fixed?' fixed':'');
+      row.dataset.di=di; row.dataset.ii=ii;
       if(coords) row.style.cursor='pointer';
-
       if(it._done) row.classList.add('done');
 
       // 사용자 태그 생성
@@ -1643,6 +1663,7 @@ function renderPlan(){
       const tagsHtml = tags.length?`<div class="item-tags">${tags.join('')}</div>`:'';
 
       row.innerHTML = `
+        ${it._fixed?'':`<span class="drag-handle" title="드래그로 순서 변경">⠿</span>`}
         <input type="checkbox" class="item-done-cb" ${it._done?'checked':''} title="완료 표시">
         <div class="item-time">${it.time||''}</div>
         <div class="item-main">
@@ -1703,9 +1724,33 @@ function renderPlan(){
 
     const add=document.createElement('button'); add.className='add-item'; add.textContent='+ 일정 추가';
     add.addEventListener('click',()=>{
-      plan[di].items.push({time:'',title:'새 일정',note:'',dist:''});savePlan();renderPlan();
+      plan[di].items.push({time:'',title:'새 일정',note:'',dist:'',_addedBy:currentUser,_personal:false,_with:['miju','sanghyo']});
+      savePlan(); renderPlan();
     });
     body.appendChild(add);
+
+    // 드래그&드롭 — 날짜 간 이동 + 순서 변경
+    Sortable.create(body,{
+      group:{name:'days',pull:true,put:true},
+      animation:150,
+      handle:'.drag-handle',
+      filter:'.item-walk,.day-gap-section,.add-item',
+      ghostClass:'sortable-ghost',
+      chosenClass:'sortable-chosen',
+      dragClass:'sortable-drag',
+      onEnd:(evt)=>{
+        const fromDi=+evt.item.dataset.di;
+        const fromIdx=+evt.item.dataset.ii;
+        const toDi=+evt.to.dataset.di;
+        const siblings=[...evt.to.querySelectorAll(':scope > .item')];
+        const toIdx=siblings.indexOf(evt.item);
+        if(toIdx<0||(fromDi===toDi&&fromIdx===toIdx)) return;
+        const planItem=plan[fromDi].items.splice(fromIdx,1)[0];
+        plan[toDi].items.splice(toIdx,0,planItem);
+        savePlan();
+        renderPlan();
+      }
+    });
   });
 
   // 진행률 바 초기화
@@ -2742,8 +2787,8 @@ function addUserMarker(place, di){
 /* ---------- TABS ---------- */
 let activeTab='plan';
 function setTab(t){
-  // 추천 탭 벗어나면 지도 프리뷰 정리
-  if(activeTab==='rec' && t!=='rec') clearRecMapSel();
+  if(activeTab==='rec'  && t!=='rec')  clearRecMapSel();
+  if(activeTab==='fest' && t!=='fest') clearFestMarkers();
   activeTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   if(t==='plan'){
@@ -3058,6 +3103,39 @@ function updateDayProgress(di){
 const FAV_KEY = 'cph_favorites';
 let favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'));
 let festFavFilter = false;
+
+/* ---------- FEST MAP MARKERS ---------- */
+const festMarkers = {};
+
+function strHash(s){
+  let h=0; for(let i=0;i<s.length;i++) h=(Math.imul(31,h)+s.charCodeAt(i))|0; return h;
+}
+function showFestMarker(ev, id){
+  if(festMarkers[id]) return;
+  const dist = DISTRICTS.find(d=>d.name===ev.district);
+  if(!dist) return;
+  const dkColor = districtColor(ev.district);
+  const catInfo = FEST_CATEGORIES.find(c=>c.key===ev.category)||FEST_CATEGORIES[0];
+  const h = strHash(ev.title);
+  const lat = dist.lat + ((h%100)/100-0.5)*0.004;
+  const lng = dist.lng + (((h>>8)%100)/100-0.5)*0.006;
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="plan-pin" style="background:${dkColor};box-shadow:0 0 0 3px #fff,0 0 0 5px ${dkColor}"><span style="font-size:11px">${catInfo.icon}</span></div>`,
+    iconSize:[28,28], iconAnchor:[14,28], popupAnchor:[0,-30]
+  });
+  const m = L.marker([lat,lng],{icon,zIndexOffset:300}).addTo(map);
+  m.bindPopup(`<div class="pop-name">${ev.title}</div><div class="pop-desc">${ev.time} · ${ev.venue}<br><b style="color:${dkColor}">${ev.district}</b></div>`);
+  festMarkers[id]=m;
+  map.flyTo([lat,lng],15,{duration:.6});
+  m.openPopup();
+}
+function hideFestMarker(id){
+  if(festMarkers[id]){ map.removeLayer(festMarkers[id]); delete festMarkers[id]; }
+}
+function clearFestMarkers(){
+  Object.keys(festMarkers).forEach(id=>hideFestMarker(id));
+}
 
 /* ---------- SERVICE WORKER ---------- */
 if('serviceWorker' in navigator){
