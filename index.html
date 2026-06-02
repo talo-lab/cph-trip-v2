@@ -569,6 +569,83 @@
   .drawer-status.ok{color:var(--sage)}
   .drawer-status.err{color:var(--rust)}
 
+  /* ============ LOGIN SCREEN ============ */
+  .login-screen{
+    position:fixed;inset:0;z-index:9999;background:var(--paper);
+    background-image:radial-gradient(var(--line) .5px,transparent .5px);
+    background-size:14px 14px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .login-card{
+    background:var(--cream);border:2px solid var(--ink);
+    padding:36px 40px;width:340px;
+    box-shadow:8px 8px 0 rgba(40,30,20,.14);
+  }
+  .login-card h2{font-family:'Fraunces',serif;font-size:28px;font-weight:600;line-height:.95;margin-bottom:4px}
+  .login-card h2 em{font-style:italic;color:var(--rust)}
+  .login-kicker{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate);margin-bottom:10px}
+  .login-lead{font-size:12.5px;color:var(--slate);margin-bottom:22px;line-height:1.4}
+  .login-field-label{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-bottom:8px;display:block}
+  .login-user-row{display:flex;gap:8px;margin-bottom:16px}
+  .login-user-btn{
+    flex:1;padding:12px 6px;border:2px solid var(--line);background:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em;
+    transition:.15s;color:var(--ink);
+  }
+  .login-user-btn.sel.miju{background:var(--plum);color:#fff;border-color:var(--plum)}
+  .login-user-btn.sel.sanghyo{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .login-user-btn:hover:not(.sel){background:rgba(0,0,0,.04)}
+  .login-pass-row{display:flex}
+  .login-pass{
+    flex:1;border:2px solid var(--ink);border-right:none;background:#fff;
+    padding:10px 12px;font-family:'Archivo';font-size:14px;color:var(--ink);
+  }
+  .login-pass:focus{outline:none;box-shadow:inset 0 0 0 1px var(--rust)}
+  .login-submit{
+    padding:0 18px;background:var(--rust);color:#fff;border:2px solid var(--ink);border-left:none;
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;
+  }
+  .login-submit:hover{background:var(--rust-deep)}
+  .login-submit:disabled{background:var(--line);color:var(--slate);cursor:wait}
+  .login-err{font-size:11px;color:var(--rust);margin-top:10px;min-height:16px;font-family:'Space Mono',monospace}
+
+  /* ============ USER BADGE ============ */
+  .user-badge{
+    display:none;align-items:center;gap:8px;margin-top:8px;padding:5px 9px;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;
+    background:rgba(0,0,0,.2);width:fit-content;border:1.5px solid rgba(255,255,255,.2);
+  }
+  .user-badge.miju{border-left:3px solid var(--plum)}
+  .user-badge.sanghyo{border-left:3px solid var(--teal)}
+  .user-badge .uname{color:var(--cream)}
+  .logout-btn{
+    background:none;border:none;cursor:pointer;color:rgba(255,255,255,.5);
+    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.04em;padding:0;transition:.12s;
+  }
+  .logout-btn:hover{color:rgba(255,255,255,.9)}
+
+  /* ============ ITEM USER TAGS ============ */
+  .item-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+  .item-tag{
+    display:inline-block;font-family:'Space Mono',monospace;font-size:9px;font-weight:700;
+    padding:1px 6px;letter-spacing:.04em;border-radius:2px;white-space:nowrap;
+  }
+  .item-tag.by-miju{background:var(--plum);color:#fff}
+  .item-tag.by-sanghyo{background:var(--teal);color:#fff}
+  .item-tag.with-only{background:var(--ochre);color:#1a1714}
+  .item-tag.personal{background:var(--slate);color:#fff}
+
+  /* ============ DRAWER PRIVACY ============ */
+  .drawer-privacy{padding:5px 14px 7px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+  .drawer-privacy-row{display:flex;align-items:center;gap:4px}
+  .drawer-privacy-label{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.05em;color:var(--slate);min-width:42px;flex-shrink:0}
+  .drawer-with-btn,.drawer-vis-btn{
+    font-family:'Space Mono',monospace;font-size:9px;padding:3px 8px;
+    border:1px solid var(--line);background:none;cursor:pointer;color:var(--slate);transition:.12s;letter-spacing:.03em;
+  }
+  .drawer-with-btn.active,.drawer-vis-btn.active{background:var(--ink);color:var(--cream);border-color:var(--ink)}
+  .drawer-vis-btn[data-vis="personal"].active{background:var(--slate);border-color:var(--slate)}
+
   @media(max-width:820px){
     .app{grid-template-columns:1fr;grid-template-rows:50vh 50vh}
     .panel{border-right:none;border-bottom:2px solid var(--ink)}
@@ -589,6 +666,10 @@
       <div class="kicker"><span>COPENHAGEN · DENMARK</span><span class="dot"></span></div>
       <h1>3 Days of <em>Design</em><br>2026</h1>
       <div class="sub">JUN 8 — JUN 16 · 미주 & 상효 · "Make This Moment Matter"</div>
+      <div class="user-badge" id="userBadge">
+        <span class="uname" id="userBadgeName"></span>
+        <button class="logout-btn" id="logoutBtn">로그아웃</button>
+      </div>
     </header>
 
     <div class="tabs">
@@ -613,6 +694,19 @@
         <button id="drawerMapBtn" title="지도에서 경로 보기" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--teal)">🗺</button>
         <button class="drawer-close" id="drawerClose">✕</button>
       </div>
+      <div class="drawer-privacy" id="drawerPrivacy">
+        <div class="drawer-privacy-row">
+          <span class="drawer-privacy-label">참가자</span>
+          <button class="drawer-with-btn" data-with="both">👥 함께</button>
+          <button class="drawer-with-btn" data-with="miju">👩 미주만</button>
+          <button class="drawer-with-btn" data-with="sanghyo">🧑 상효만</button>
+        </div>
+        <div class="drawer-privacy-row">
+          <span class="drawer-privacy-label">공개</span>
+          <button class="drawer-vis-btn" data-vis="shared">공유</button>
+          <button class="drawer-vis-btn" data-vis="personal">🔒 나만보기</button>
+        </div>
+      </div>
       <div class="drawer-row">
         <textarea class="drawer-input" id="drawerInput" rows="2" placeholder="이 일정에 대해 자유롭게 요청하세요..."></textarea>
         <button class="drawer-send" id="drawerSend">전송</button>
@@ -634,7 +728,74 @@
   </main>
 </div>
 
+<div class="login-screen" id="loginScreen" style="display:none">
+  <div class="login-card">
+    <div class="login-kicker">COPENHAGEN · JUNE 2026</div>
+    <h2>3 Days of <em>Design</em></h2>
+    <p class="login-lead">미주 & 상효의 여행 플래너<br>로그인하면 어느 기기에서나 일정이 동기화돼요.</p>
+    <label class="login-field-label">나는 누구?</label>
+    <div class="login-user-row">
+      <button class="login-user-btn" data-user="miju">미주</button>
+      <button class="login-user-btn" data-user="sanghyo">상효</button>
+    </div>
+    <label class="login-field-label">비밀번호</label>
+    <div class="login-pass-row">
+      <input type="password" class="login-pass" id="loginPass" placeholder="••••••••">
+      <button class="login-submit" id="loginSubmit">입장 →</button>
+    </div>
+    <p class="login-err" id="loginErr"></p>
+  </div>
+</div>
+
 <script>
+/* ---------- AUTH ---------- */
+let currentUser = null; // 'miju' | 'sanghyo'
+let authToken   = null;
+const USER_LABELS = { miju:'미주', sanghyo:'상효' };
+
+function loadAuth(){
+  try{
+    const d = JSON.parse(localStorage.getItem('cph_auth')||'null');
+    if(d?.user && d?.token){ currentUser=d.user; authToken=d.token; }
+  }catch(e){}
+}
+function saveAuth(user, token){
+  currentUser=user; authToken=token;
+  try{ localStorage.setItem('cph_auth', JSON.stringify({user,token})); }catch(e){}
+}
+function clearAuth(){
+  currentUser=null; authToken=null;
+  try{ localStorage.removeItem('cph_auth'); }catch(e){}
+}
+function updateUserBadge(){
+  const badge=document.getElementById('userBadge');
+  const name=document.getElementById('userBadgeName');
+  if(!badge||!name) return;
+  if(currentUser){
+    name.textContent = USER_LABELS[currentUser];
+    badge.className  = 'user-badge '+currentUser;
+    badge.style.display='flex';
+  } else {
+    badge.style.display='none';
+  }
+}
+function showLoginScreen(){ document.getElementById('loginScreen').style.display='flex'; }
+function hideLoginScreen(){ document.getElementById('loginScreen').style.display='none'; updateUserBadge(); }
+
+async function doLogin(user, password){
+  const r = await fetch('/api/auth',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({user,password})
+  });
+  if(!r.ok){ const d=await r.json(); throw new Error(d.error||'로그인 실패'); }
+  const {token} = await r.json();
+  saveAuth(user, token);
+}
+async function doLogout(){
+  try{ await fetch('/api/auth',{method:'DELETE',headers:{Authorization:`Bearer ${authToken}`}}); }catch(e){}
+  clearAuth(); showLoginScreen();
+}
+
 /* ---------- DATA ---------- */
 const DISTRICTS = [
   {key:'kongens', name:'Kongens Nytorv', color:'#c8492a', lat:55.680523, lng:12.585957, desc:'도심 핵심 광장 · Arper 등 주요 쇼룸 밀집', when:'Day 3 (6/10)'},
@@ -701,40 +862,67 @@ const DEFAULT_PLAN = [
 const STORE_KEY = 'cph_design_plan_v4';
 let plan;
 
-// window.storage(Claude Code 전용) + localStorage 듀얼 저장
 async function loadPlan(){
   let loaded = null;
-  try{
-    // 1순위: window.storage (Claude Code 환경)
-    if(typeof window.storage !== 'undefined'){
-      const r = await window.storage.get(STORE_KEY);
-      if(r && r.value) loaded = JSON.parse(r.value);
-    }
-  }catch(e){}
-  try{
-    // 2순위: localStorage (Vercel 배포 환경 포함 모든 브라우저)
-    if(!loaded){
-      const raw = localStorage.getItem(STORE_KEY);
-      if(raw) loaded = JSON.parse(raw);
-    }
-  }catch(e){}
+
+  // 1순위: Vercel KV (서버) — 로그인 상태일 때
+  if(authToken){
+    try{
+      const r = await fetch('/api/plan',{headers:{Authorization:`Bearer ${authToken}`}});
+      if(r.status===401){ clearAuth(); showLoginScreen(); return; }
+      if(r.ok){
+        const data = await r.json();
+        loaded = data.plan;
+        if(data.favs) favorites = new Set(data.favs);
+      }
+    }catch(e){}
+  }
+
+  // 2순위: localStorage (오프라인 폴백)
+  if(!loaded){
+    try{ const raw=localStorage.getItem(STORE_KEY); if(raw) loaded=JSON.parse(raw); }catch(e){}
+  }
+
   plan = loaded || structuredClone(DEFAULT_PLAN);
 }
 
 let saveTimer;
 async function savePlan(){
+  // localStorage: 즉시 저장 (탭 전환·새로고침 대비)
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(plan)); }catch(e){}
+
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async()=>{
-    const json = JSON.stringify(plan);
-    // localStorage: 동기 저장 (항상 작동)
-    try{ localStorage.setItem(STORE_KEY, json); }catch(e){}
-    // window.storage: 있으면 추가 저장
-    try{
-      if(typeof window.storage !== 'undefined')
-        await window.storage.set(STORE_KEY, json, false);
-    }catch(e){}
+    // 서버 저장
+    if(authToken){
+      try{
+        await fetch('/api/plan',{
+          method:'POST',
+          headers:{Authorization:`Bearer ${authToken}`,'Content-Type':'application/json'},
+          body:JSON.stringify({plan})
+        });
+      }catch(e){}
+    }
     const s=document.getElementById('saver');
     if(s){ s.classList.add('show'); setTimeout(()=>s.classList.remove('show'),1400); }
+  },400);
+}
+
+let saveFavTimer;
+function saveFavs(){
+  try{ localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }catch(e){}
+  // 서버 즐겨찾기 동기화 (디바운스)
+  clearTimeout(saveFavTimer);
+  saveFavTimer = setTimeout(async()=>{
+    if(authToken){
+      try{
+        await fetch('/api/plan',{
+          method:'POST',
+          headers:{Authorization:`Bearer ${authToken}`,'Content-Type':'application/json'},
+          body:JSON.stringify({favs:[...favorites]})
+        });
+      }catch(e){}
+    }
   },400);
 }
 
@@ -1042,13 +1230,17 @@ const evDetailCache = {};
 
 /* ---------- EVENT DETAIL MODAL ---------- */
 function openEvModal(ev, id){
-  // 이미 열려있으면 닫기
   const existing = document.getElementById('evOverlay');
-  if(existing){ existing.remove(); return; }
+  if(existing){
+    existing.remove();
+    // 같은 이벤트 재클릭이면 닫기만 (토글)
+    if(existing.dataset.evId === id) return;
+  }
 
   const dkColor = districtColor(ev.district);
   const overlay = document.createElement('div');
   overlay.className='ev-overlay'; overlay.id='evOverlay';
+  overlay.dataset.evId = id;
 
   overlay.innerHTML=`
     <div class="ev-modal" id="evModal">
@@ -1374,18 +1566,16 @@ async function addFestSelected(){
     // 중복 방지
     if(plan[di].items.some(it=>it.title===ev.title)) return;
     plan[di].items.push({
-      time: ev.time.split('-')[0], // 시작 시간만
+      time: ev.time.split('-')[0],
       title: ev.title,
       note: `${ev.venue} · ${ev.address} · ${ev.desc}`,
       dist: ev.district,
       _user: true,
+      _addedBy: currentUser,
+      _personal: false,
+      _with: ['miju','sanghyo'],
     });
-    // 시간순 정렬 (시간 있는 항목만)
-    plan[di].items.sort((a,b)=>{
-      const ta = a.time.replace(':','') || '9999';
-      const tb = b.time.replace(':','') || '9999';
-      return ta.localeCompare(tb);
-    });
+    sortDayByTime(di);
   });
 
   await savePlan();
@@ -1435,12 +1625,23 @@ function renderPlan(){
     const body = d.querySelector(`#body-${di}`);
 
     day.items.forEach((it,ii)=>{
+      // 다른 사람의 개인 일정 숨김
+      if(it._personal && it._addedBy && it._addedBy !== currentUser) return;
+
       const coords = getItemCoords(it);
       const row = document.createElement('div');
       row.className='item'+(it._user?' user-added':'')+(it._fixed?' fixed':'');
       if(coords) row.style.cursor='pointer';
 
       if(it._done) row.classList.add('done');
+
+      // 사용자 태그 생성
+      const tags=[];
+      if(it._addedBy) tags.push(`<span class="item-tag by-${it._addedBy}">${USER_LABELS[it._addedBy]}</span>`);
+      if(it._personal) tags.push(`<span class="item-tag personal">🔒 나만</span>`);
+      else if(it._with?.length===1) tags.push(`<span class="item-tag with-only">${USER_LABELS[it._with[0]]}만</span>`);
+      const tagsHtml = tags.length?`<div class="item-tags">${tags.join('')}</div>`:'';
+
       row.innerHTML = `
         <input type="checkbox" class="item-done-cb" ${it._done?'checked':''} title="완료 표시">
         <div class="item-time">${it.time||''}</div>
@@ -1450,6 +1651,7 @@ function renderPlan(){
           ${it.dist?`<span class="item-dist">${it.dist}</span>`:''}
           ${it._user?`<span class="item-src">＋ 내가 추가</span>`:''}
           ${it._fixed?`<span class="item-src lock">🔒 예약 확정 · 고정</span>`:''}
+          ${tagsHtml}
         </div>
         <button class="item-x" title="${it._fixed?'고정 일정':'삭제'}" ${it._fixed?'disabled':''}>${it._fixed?'🔒':'×'}</button>`;
 
@@ -1886,6 +2088,9 @@ async function applyRecItems(){
         _user: true,
         _lat: it._lat||undefined,
         _lng: it._lng||undefined,
+        _addedBy: currentUser,
+        _personal: false,
+        _with: ['miju','sanghyo'],
       });
       sortDayByTime(di);
       added++;
@@ -2198,6 +2403,8 @@ function detectConflict(di, newTime, newCoords){
     if(m>=9999) return false;
     // 고정 항목끼리는 스킵
     if(it._fixed) return false;
+    // 새 항목이 기존 항목보다 이른 경우: 반대 방향이므로 스킵
+    if(newMin < m) return false;
 
     const dur = estimateDuration(it);
     const itEnd = m + dur;
@@ -2418,13 +2625,28 @@ Rules: never delete _fixed:true items; preserve _user,_fixed,_lat,_lng,_dk field
 /* ---------- ITEM DRAWER ---------- */
 let drawerContext = null; // {di, ii}
 
+function updateDrawerPrivacy(){
+  if(!drawerContext) return;
+  const it = plan[drawerContext.di]?.items[drawerContext.ii];
+  if(!it){ document.getElementById('drawerPrivacy').style.display='none'; return; }
+  document.getElementById('drawerPrivacy').style.display='flex';
+
+  const withVal = (!it._with || it._with.length>=2) ? 'both' : it._with[0];
+  document.querySelectorAll('.drawer-with-btn').forEach(b=>
+    b.classList.toggle('active', b.dataset.with===withVal));
+
+  const visVal = it._personal ? 'personal' : 'shared';
+  document.querySelectorAll('.drawer-vis-btn').forEach(b=>
+    b.classList.toggle('active', b.dataset.vis===visVal));
+}
+
 function openDrawer(di, ii, title){
   drawerContext = {di, ii};
-  const drawer = document.getElementById('itemDrawer');
   document.getElementById('drawerLabel').textContent = title;
   document.getElementById('drawerInput').value = '';
   document.getElementById('drawerStatus').className = 'drawer-status';
-  drawer.classList.add('open');
+  document.getElementById('itemDrawer').classList.add('open');
+  updateDrawerPrivacy();
   setTimeout(()=>document.getElementById('drawerInput').focus(), 250);
 }
 
@@ -2544,6 +2766,65 @@ function setTab(t){
   }
 }
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+
+// 드로어 참가자·공개 버튼
+document.querySelectorAll('.drawer-with-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(!drawerContext) return;
+    const it = plan[drawerContext.di]?.items[drawerContext.ii];
+    if(!it) return;
+    it._with = btn.dataset.with==='both' ? ['miju','sanghyo'] : [btn.dataset.with];
+    savePlan(); updateDrawerPrivacy(); renderPlan();
+  });
+});
+document.querySelectorAll('.drawer-vis-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    if(!drawerContext) return;
+    const it = plan[drawerContext.di]?.items[drawerContext.ii];
+    if(!it) return;
+    it._personal = btn.dataset.vis==='personal';
+    if(it._personal && !it._addedBy) it._addedBy = currentUser;
+    savePlan(); updateDrawerPrivacy(); renderPlan();
+  });
+});
+
+// 로그인 폼
+let _loginUser = null;
+document.querySelectorAll('.login-user-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('sel','miju','sanghyo'));
+    btn.classList.add('sel', btn.dataset.user);
+    _loginUser = btn.dataset.user;
+    document.getElementById('loginPass').focus();
+  });
+});
+async function submitLogin(){
+  const err  = document.getElementById('loginErr');
+  const pass = document.getElementById('loginPass').value;
+  const sub  = document.getElementById('loginSubmit');
+  if(!_loginUser){ err.textContent='미주 또는 상효를 선택해주세요'; return; }
+  if(!pass){ err.textContent='비밀번호를 입력해주세요'; return; }
+  sub.disabled=true; sub.textContent='로그인 중...'; err.textContent='';
+  try{
+    await doLogin(_loginUser, pass);
+    hideLoginScreen();
+    await loadPlan();
+    plan.forEach(day=>day.items.forEach(it=>{
+      if(it._user && it._lat && it._lng) addUserMarker({title:it.title,note:it.note,lat:it._lat,lng:it._lng});
+    }));
+    setTab('plan');
+  }catch(e){
+    err.textContent=e.message;
+    sub.disabled=false; sub.textContent='입장 →';
+  }
+}
+document.getElementById('loginSubmit').addEventListener('click', submitLogin);
+document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key==='Enter') submitLogin(); });
+
+// 로그아웃
+document.getElementById('logoutBtn').addEventListener('click',()=>{
+  if(confirm('로그아웃하시겠어요?')) doLogout();
+});
 
 // 드로어 이벤트
 document.getElementById('drawerClose').addEventListener('click', closeDrawer);
@@ -2776,8 +3057,7 @@ function updateDayProgress(di){
 /* ---------- FAVORITES ---------- */
 const FAV_KEY = 'cph_favorites';
 let favorites = new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'));
-function saveFavs(){ localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }
-let festFavFilter = false; // 즐겨찾기만 표시 토글
+let festFavFilter = false;
 
 /* ---------- SERVICE WORKER ---------- */
 if('serviceWorker' in navigator){
@@ -2793,11 +3073,20 @@ if('serviceWorker' in navigator){
 
 /* ---------- INIT ---------- */
 (async()=>{
+  loadAuth();
+
+  // 미로그인 → 로그인 화면
+  if(!authToken){ showLoginScreen(); return; }
+
   await loadPlan();
-  // 저장된 사용자 추가 장소의 지도 마커 복원
+
+  // 토큰 만료 등으로 currentUser가 사라진 경우
+  if(!currentUser){ showLoginScreen(); return; }
+
   plan.forEach(day=>day.items.forEach(it=>{
     if(it._user && it._lat && it._lng) addUserMarker({title:it.title,note:it.note,lat:it._lat,lng:it._lng});
   }));
+  updateUserBadge();
   setTab('plan');
 })();
 </script>
