@@ -176,6 +176,81 @@
   .fest-add-btn:hover{background:var(--rust-deep)}
   .fest-add-btn:disabled{background:var(--line);color:var(--slate);cursor:default}
   .fest-count{font-family:'Space Mono',monospace;font-size:11px;color:var(--slate);white-space:nowrap}
+  .fest-title-link{cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+  .fest-title-link:hover{text-decoration-color:var(--rust);color:var(--rust)}
+
+  /* ============ EVENT DETAIL MODAL ============ */
+  .ev-overlay{
+    position:fixed;inset:0;background:rgba(26,23,20,.6);z-index:9000;
+    display:flex;align-items:flex-end;justify-content:center;
+    backdrop-filter:blur(2px);animation:fadeIn .18s ease;
+  }
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .ev-modal{
+    background:var(--cream);width:100%;max-width:480px;max-height:88vh;
+    border-top:3px solid var(--ink);overflow-y:auto;
+    animation:slideUp .22s ease;position:relative;
+  }
+  @keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .ev-header{
+    background:var(--rust);color:var(--cream);padding:16px 20px 14px;
+    position:sticky;top:0;z-index:1;
+  }
+  .ev-close{
+    position:absolute;top:12px;right:14px;background:none;border:none;
+    color:var(--cream);font-size:20px;cursor:pointer;opacity:.8;line-height:1;
+    padding:2px 6px;
+  }
+  .ev-close:hover{opacity:1}
+  .ev-hed-title{font-family:'Fraunces',serif;font-size:18px;font-weight:600;line-height:1.2;padding-right:28px}
+  .ev-hed-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;opacity:.88}
+  .ev-hed-time{font-family:'Space Mono',monospace;font-weight:700}
+  .ev-hed-dk{padding:1px 6px;border-radius:2px;font-weight:600}
+  .ev-photo{
+    width:100%;height:160px;object-fit:cover;display:block;
+    background:var(--ink);position:relative;overflow:hidden;
+  }
+  .ev-photo-placeholder{
+    width:100%;height:160px;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:6px;
+    background:linear-gradient(135deg,var(--ink) 0%,#2d3a2e 100%);
+    color:var(--cream);opacity:.9;
+  }
+  .ev-photo-icon{font-size:36px;opacity:.6}
+  .ev-photo-vname{font-family:'Space Mono',monospace;font-size:11px;opacity:.5;letter-spacing:.08em}
+  .ev-body{padding:18px 20px 24px;display:flex;flex-direction:column;gap:14px}
+  .ev-section{}
+  .ev-section-label{
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--slate);
+    margin-bottom:5px;display:flex;align-items:center;gap:6px;
+  }
+  .ev-section-label::after{content:'';flex:1;height:1px;background:var(--line)}
+  .ev-section-body{font-size:13px;line-height:1.55;color:var(--ink)}
+  .ev-badge{
+    display:inline-flex;align-items:center;gap:5px;padding:5px 10px;
+    font-size:12px;font-weight:600;border-radius:2px;
+  }
+  .ev-badge.ok{background:#e8f5e9;color:#2e7d32}
+  .ev-badge.warn{background:#fff3e0;color:#e65100}
+  .ev-badge.req{background:#fce4ec;color:#c62828}
+  .ev-items-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .ev-chip{
+    font-size:11.5px;padding:4px 9px;border:1px solid var(--line);
+    background:var(--cream);color:var(--slate);border-radius:2px;
+  }
+  .ev-loading{display:flex;align-items:center;gap:8px;color:var(--slate);font-size:13px;padding:8px 0}
+  .ev-spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);
+    border-top-color:var(--rust);border-radius:50%;animation:sp .7s linear infinite}
+  .ev-add-row{
+    display:flex;gap:8px;padding:0 20px 20px;
+  }
+  .ev-add-btn{
+    flex:1;padding:11px;background:var(--rust);color:#fff;border:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.05em;
+  }
+  .ev-add-btn:hover{background:var(--rust-deep)}
+  .ev-add-btn.done{background:var(--sage)}
 
   /* ============ DISTRICTS TAB ============ */
   .dist-list{padding:10px 0}
@@ -625,6 +700,138 @@ const FESTIVAL_EVENTS = [
 let festDateFilter = 'June 10';
 let festDistFilter = 'all';
 let festChecked = new Set();
+const evDetailCache = {};
+
+/* ---------- EVENT DETAIL MODAL ---------- */
+function openEvModal(ev, id){
+  // 이미 열려있으면 닫기
+  const existing = document.getElementById('evOverlay');
+  if(existing){ existing.remove(); return; }
+
+  const dkColor = DISTRICT_COLORS[ev.district]||'#888';
+  const overlay = document.createElement('div');
+  overlay.className='ev-overlay'; overlay.id='evOverlay';
+
+  overlay.innerHTML=`
+    <div class="ev-modal" id="evModal">
+      <div class="ev-header">
+        <button class="ev-close" id="evClose">✕</button>
+        <div class="ev-hed-title">${ev.title}</div>
+        <div class="ev-hed-meta">
+          <span class="ev-hed-time">${ev.time}</span>
+          <span>${ev.venue}</span>
+          <span class="ev-hed-dk" style="background:${dkColor}">${ev.district}</span>
+        </div>
+      </div>
+      <div class="ev-photo-placeholder">
+        <div class="ev-photo-icon">🏛</div>
+        <div class="ev-photo-vname">${ev.venue.toUpperCase()}</div>
+      </div>
+      <div class="ev-body" id="evBody">
+        <div class="ev-section">
+          <div class="ev-section-label">행사 설명</div>
+          <div class="ev-section-body">${ev.desc}</div>
+        </div>
+        <div id="evDetail">
+          <div class="ev-loading"><div class="ev-spin"></div>상세 정보를 불러오는 중...</div>
+        </div>
+      </div>
+      <div class="ev-add-row">
+        <button class="ev-add-btn ${festChecked.has(id)?'done':''}" id="evAddBtn">
+          ${festChecked.has(id)?'✓ 일정에 추가됨':'＋ 일정에 추가'}
+        </button>
+      </div>
+    </div>`;
+
+  // 닫기
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.querySelector('#evClose').onclick = ()=>overlay.remove();
+
+  // 일정 추가 버튼
+  overlay.querySelector('#evAddBtn').onclick = ()=>{
+    const btn = overlay.querySelector('#evAddBtn');
+    if(festChecked.has(id)){
+      festChecked.delete(id);
+      btn.textContent='＋ 일정에 추가'; btn.classList.remove('done');
+    } else {
+      festChecked.add(id);
+      btn.textContent='✓ 일정에 추가됨'; btn.classList.add('done');
+    }
+    updateFestBar();
+  };
+
+  document.body.appendChild(overlay);
+
+  // 상세 정보 로드
+  loadEvDetail(ev, id);
+}
+
+async function loadEvDetail(ev, id){
+  const detailEl = document.getElementById('evDetail');
+  if(!detailEl) return;
+
+  if(evDetailCache[id]){
+    renderEvDetail(evDetailCache[id], detailEl);
+    return;
+  }
+
+  const sys = `너는 코펜하겐 3 Days of Design 2026 페스티벌 전문가다. 행사 정보를 받아 JSON만 출력한다. 마크다운·설명 절대 금지.
+출력 형식:
+{
+  "detail": "3~4문장 상세 설명 (한국어, 행사 성격·볼거리·분위기)",
+  "reservation": "불필요" | "사전등록 권장" | "티켓 필요",
+  "reservationNote": "예약 관련 한 줄 안내 (없으면 빈 문자열)",
+  "items": ["준비물1","준비물2",...],
+  "duration": "예상 소요시간 (예: 30분~1시간)",
+  "tips": "현장 팁 한 문장"
+}`;
+
+  const input = `행사명: ${ev.title}
+장소: ${ev.venue} (${ev.address})
+날짜/시간: ${ev.date} ${ev.time}
+지구: ${ev.district}
+설명: ${ev.desc}`;
+
+  try{
+    const resp = await fetch('/api/extract',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({system:sys, input, max_tokens:600})
+    });
+    if(!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    const txt = (data.text||'').replace(/```json|```/g,'').trim();
+    const obj = JSON.parse(txt);
+    evDetailCache[id] = obj;
+    if(document.getElementById('evDetail')) renderEvDetail(obj, document.getElementById('evDetail'));
+  } catch(e){
+    if(detailEl) detailEl.innerHTML=`<div style="font-size:12px;color:var(--slate);opacity:.7">상세 정보를 불러올 수 없어요. (${e.message})</div>`;
+  }
+}
+
+function renderEvDetail(d, el){
+  const resClass = d.reservation==='불필요'?'ok': d.reservation==='사전등록 권장'?'warn':'req';
+  const resIcon = d.reservation==='불필요'?'✓': d.reservation==='사전등록 권장'?'⚠':'🎫';
+  el.innerHTML=`
+    <div class="ev-section">
+      <div class="ev-section-label">상세 정보</div>
+      <div class="ev-section-body">${d.detail||''}</div>
+    </div>
+    <div class="ev-section">
+      <div class="ev-section-label">사전예약</div>
+      <div class="ev-badge ${resClass}">${resIcon} ${d.reservation}</div>
+      ${d.reservationNote?`<div style="font-size:11.5px;color:var(--slate);margin-top:5px">${d.reservationNote}</div>`:''}
+    </div>
+    <div class="ev-section">
+      <div class="ev-section-label">준비물</div>
+      <div class="ev-items-list">
+        ${(d.items||[]).map(it=>`<span class="ev-chip">${it}</span>`).join('')||'<span style="font-size:12px;color:var(--slate)">특별한 준비물 없음</span>'}
+      </div>
+    </div>
+    <div class="ev-section">
+      <div class="ev-section-label">소요시간 · 팁</div>
+      <div class="ev-section-body">⏱ ${d.duration||'미정'}<br><span style="opacity:.8">💡 ${d.tips||''}</span></div>
+    </div>`;
+}
 
 function renderFest(){
   const el = document.getElementById('scroll');
@@ -682,7 +889,7 @@ function renderFest(){
     row.innerHTML = `
       <input type="checkbox" class="fest-cb" ${isChecked?'checked':''}>
       <div class="fest-body">
-        <div class="fest-title">${ev.title}</div>
+        <div class="fest-title fest-title-link">${ev.title}</div>
         <div class="fest-meta">
           <span class="fest-time">${ev.time}</span>
           <span class="fest-venue">${ev.venue}</span>
@@ -691,12 +898,25 @@ function renderFest(){
         <div class="fest-desc">${ev.desc}</div>
       </div>`;
     const cb = row.querySelector('.fest-cb');
+    const titleEl = row.querySelector('.fest-title-link');
+
     cb.onchange = ()=>{
       if(cb.checked) festChecked.add(id); else festChecked.delete(id);
       row.classList.toggle('checked', cb.checked);
       updateFestBar();
     };
-    row.addEventListener('click', e=>{ if(e.target!==cb){ cb.checked=!cb.checked; cb.onchange(); } });
+
+    // 제목 클릭 → 상세 팝업
+    titleEl.addEventListener('click', e=>{
+      e.stopPropagation();
+      openEvModal(ev, id);
+    });
+
+    // 행 나머지 클릭 → 체크박스 토글
+    row.addEventListener('click', e=>{
+      if(e.target===cb || e.target===titleEl) return;
+      cb.checked=!cb.checked; cb.onchange();
+    });
     list.appendChild(row);
   });
   wrap.appendChild(list);
