@@ -454,13 +454,7 @@
   .fav-btn:hover{transform:scale(1.2)}
   .fest-filter-btn.fav-active{background:#c8492a;color:#fff;border-color:#c8492a}
 
-  .item-sel{
-    width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);
-    flex-shrink:0;cursor:pointer;transition:.15s;align-self:center;background:transparent;
-  }
-  .item-sel.on{background:var(--rust);border-color:var(--rust)}
   .item{cursor:pointer}
-  .item:hover .item-sel{border-color:var(--rust)}
 
   /* ============ RECOMMEND TAB ============ */
   .rec-wrap{padding:0 0 80px}
@@ -598,6 +592,7 @@
       <div class="drawer-head">
         <span class="drawer-icon">✦ AI</span>
         <span class="drawer-label" id="drawerLabel"></span>
+        <button id="drawerMapBtn" title="지도에서 경로 보기" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;color:var(--teal)">🗺</button>
         <button class="drawer-close" id="drawerClose">✕</button>
       </div>
       <div class="drawer-row">
@@ -1375,7 +1370,6 @@ let currentVisDay = 0;
 function renderPlan(){
   const el = document.getElementById('scroll');
   el.innerHTML = '';
-  planSelItems = [];
   if(selRouteLayer){ map.removeLayer(selRouteLayer); selRouteLayer=null; }
 
   // 날씨 비동기 로드 → 렌더 후 삽입
@@ -1410,13 +1404,6 @@ function renderPlan(){
       row.className='item'+(it._user?' user-added':'')+(it._fixed?' fixed':'');
       if(coords) row.style.cursor='pointer';
 
-      // 선택 도트 (좌표 있는 항목만)
-      const selKey = `${di}-${ii}`;
-      const dot = document.createElement('div');
-      dot.className='item-sel';
-      dot.dataset.selkey = selKey;
-      if(!coords) dot.style.visibility='hidden';
-
       if(it._done) row.classList.add('done');
       row.innerHTML = `
         <input type="checkbox" class="item-done-cb" ${it._done?'checked':''} title="완료 표시">
@@ -1429,7 +1416,6 @@ function renderPlan(){
           ${it._fixed?`<span class="item-src lock">🔒 예약 확정 · 고정</span>`:''}
         </div>
         <button class="item-x" title="${it._fixed?'고정 일정':'삭제'}" ${it._fixed?'disabled':''}>${it._fixed?'🔒':'×'}</button>`;
-      row.insertBefore(dot, row.firstChild);
 
       // 완료 체크박스
       const doneCb = row.querySelector('.item-done-cb');
@@ -1451,18 +1437,11 @@ function renderPlan(){
         plan[di].items.splice(ii,1);savePlan();renderPlan();
       });
 
-      // 선택 도트 클릭 → 2항목 경로 시각화
-      dot.addEventListener('click', e=>{
-        e.stopPropagation();
-        if(!coords) return;
-        togglePlanSel(di,ii,coords.lat,coords.lng,it.title,dot);
-      });
-
       // 행 클릭 → 지도 경로 시각화 + 드로어 열기
       row.addEventListener('click', e=>{
-        if(e.target.matches('[contenteditable],[contenteditable] *,.item-x,.item-sel')) return;
+        if(e.target.matches('[contenteditable],[contenteditable] *,.item-x,.item-done-cb')) return;
         openDrawer(di, ii, it.title);
-        showItemRoute(di, ii); // 이전·다음 좌표 기준 경로 + 이동수단 표시
+        showItemRoute(di, ii);
       });
 
       body.appendChild(row);
@@ -2354,6 +2333,9 @@ document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setT
 
 // 드로어 이벤트
 document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.getElementById('drawerMapBtn').addEventListener('click', ()=>{
+  if(drawerContext) showItemRoute(drawerContext.di, drawerContext.ii);
+});
 document.getElementById('drawerSend').addEventListener('click', sendDrawerMsg);
 document.getElementById('drawerInput').addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); sendDrawerMsg(); }
