@@ -2178,24 +2178,45 @@ function detectConflict(di, newTime, newCoords){
   return plan[di].items.find(it=>{
     const m = timeToMin(it.time);
     if(m>=9999) return false;
-    // 기본 겹침 (±60분)
-    const overlap = Math.abs(m - newMin) <= 60;
-    if(overlap) return true;
-    // 이동시간 포함 충돌: 이전 항목 종료 추정 + 이동시간 > 새 항목 시작
-    if(newCoords && newMin > m){
+    // 고정 항목끼리는 스킵
+    if(it._fixed) return false;
+
+    const dur = estimateDuration(it);
+    const itEnd = m + dur;
+    const gap = newMin - itEnd;
+
+    // 이동시간 계산
+    let travelMins = 0;
+    if(newCoords){
       const prevCoords = getItemCoords(it);
-      if(prevCoords){
-        const travel = transportBetween(prevCoords, newCoords);
-        // 이전 항목 소요 45분 가정 + 이동시간
-        const prevEnd = m + 45 + travel.mins;
-        if(prevEnd > newMin) return true;
-      }
+      if(prevCoords) travelMins = transportBetween(prevCoords, newCoords).mins;
     }
-    return false;
+
+    return gap < travelMins + 10; // 여유가 이동시간+10분 미만이면 충돌
   }) || null;
 }
 
 /* 일정 전체 충돌 스캔 */
+/* 항목 담당자 추출 — "[미주]", "[상효]" 등 앞 태그 */
+function getPersonTag(it){
+  return (it.title||'').match(/^\[([^\]]+)\]/)?.[1] || null;
+}
+
+/* 항목 예상 소요시간 (분) */
+function estimateDuration(it){
+  // 고정 항목(항공·공항이동 등)은 즉각적 — 시작 시각만 점유
+  if(it._fixed) return 0;
+  const txt = ((it.title||'')+(it.note||'')).toLowerCase();
+  if(/check.?in|체크인|airbnb|숙소/.test(txt))   return 15;
+  if(/checkout|체크아웃/.test(txt))               return 30;
+  if(/공항|airport|이동/.test(txt))               return 0;   // 이동은 소요시간 없음
+  if(/dinner|lunch|breakfast|dining|식사|다이닝|brunch|레스토랑/.test(txt)) return 90;
+  if(/museum|전시|exhibition|미술관/.test(txt))   return 90;
+  if(/tour|투어|walk|산책/.test(txt))             return 60;
+  if(/yoga|wellness|breathwork/.test(txt))        return 45;
+  return 30; // 토크·쇼룸 등 기본값
+}
+
 function scanAllConflicts(){
   const results = [];
   plan.forEach((day, di)=>{
@@ -2204,17 +2225,31 @@ function scanAllConflicts(){
       const a = items[i], b = items[i+1];
       const tA = timeToMin(a.time), tB = timeToMin(b.time);
       if(tA>=9999 || tB>=9999) continue;
+
+      // ① 다른 사람의 일정이면 충돌 아님 ([미주]↔[상효] 등)
+      const pA = getPersonTag(a), pB = getPersonTag(b);
+      if(pA && pB && pA !== pB) continue;
+
+      // ② 둘 다 고정 항공편이면 스킵 (각자 비행기)
+      if(a._fixed && b._fixed) continue;
+
+      // ③ 항목 A 소요시간 + 이동시간 계산
+      const aDur = estimateDuration(a);
+      const aEnd = tA + aDur;
+
+      // 이동시간: 좌표 있을 때만
       const cA = getItemCoords(a), cB = getItemCoords(b);
-      let minGap = 30; // 최소 30분 필요
+      let travelMins = 0;
       if(cA && cB){
-        const travel = transportBetween(cA, cB);
-        minGap = travel.mins + 15; // 이동 + 여유 15분
+        const t = transportBetween(cA, cB);
+        travelMins = t.mins;
       }
-      // 예상 종료시각: 다음 항목까지 시간 or 기본 45분
-      const aDuration = Math.min(tB - tA, 90);
-      const aEnd = tA + aDuration;
-      if(aEnd + minGap > tB){
-        results.push({di, i, a, b, gap: tB - aEnd, needed: minGap, day: day.date});
+
+      const needed = travelMins + 10; // 이동 + 여유 10분
+      const gap = tB - aEnd;          // 실제 여유
+
+      if(gap < needed){
+        results.push({di, i, a, b, gap, needed, travelMins, day: day.date});
       }
     }
   });
@@ -2227,11 +2262,12 @@ function renderConflictBanner(el){
   if(!conflicts.length) return;
   const banner = document.createElement('div');
   banner.style.cssText='margin:8px 16px;padding:10px 12px;background:#fff3e0;border-left:3px solid #e65100;font-size:12px;line-height:1.5';
-  banner.innerHTML=`<b>⚠ 이동시간 포함 충돌 ${conflicts.length}건</b><br>`
-    + conflicts.slice(0,3).map(c=>
-        `${c.day}: <b>${c.a.title}</b> → <b>${c.b.title}</b> 사이 여유 ${c.gap}분 (${c.needed}분 필요)`
-      ).join('<br>')
-    + (conflicts.length>3 ? `<br>...외 ${conflicts.length-3}건` : '');
+  banner.innerHTML=`<b>⚠ 시간 여유 부족 ${conflicts.length}건</b><br>`
+    + conflicts.slice(0,3).map(c=>{
+        const travelNote = c.travelMins>0 ? ` (이동 ${c.travelMins}분 포함)` : '';
+        return `${c.day}: <b>${c.a.title}</b> → <b>${c.b.title}</b> — 여유 ${Math.max(0,c.gap)}분 · ${c.needed}분 필요${travelNote}`;
+      }).join('<br>')
+    + (conflicts.length>3 ? `<br><span style="opacity:.7">...외 ${conflicts.length-3}건</span>` : '');
   el.insertBefore(banner, el.firstChild);
 }
 
