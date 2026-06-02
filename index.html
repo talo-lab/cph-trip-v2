@@ -482,10 +482,28 @@
   .rec-items{padding:4px 0 8px}
   .rec-item{
     display:flex;gap:10px;padding:8px 20px;border-bottom:1px dashed var(--line);
-    cursor:pointer;transition:.1s;align-items:flex-start;
+    cursor:pointer;transition:.12s;align-items:flex-start;
   }
   .rec-item:hover{background:rgba(0,0,0,.03)}
   .rec-item.added{background:rgba(93,116,86,.08)}
+  .rec-item.map-active{background:rgba(155,122,181,.12);border-left:3px solid #9b7ab5;padding-left:17px}
+  .rec-item.map-prev{background:rgba(155,122,181,.05);border-left:3px solid rgba(155,122,181,.3);padding-left:17px}
+
+  /* 동선 비교 패널 */
+  .rec-route-panel{
+    position:sticky;top:0;z-index:10;
+    background:linear-gradient(135deg,#1a1714 0%,#2a2030 100%);
+    color:var(--cream);padding:10px 16px;
+    border-bottom:2px solid #9b7ab5;font-size:11.5px;line-height:1.5;display:none;
+  }
+  .rec-route-panel.show{display:block}
+  .rec-route-panel b{color:#c4a8e8}
+  .rec-route-clear{float:right;background:none;border:none;color:rgba(255,255,255,.45);cursor:pointer;font-size:15px;line-height:1;margin-top:-1px}
+  .rec-route-clear:hover{color:#fff}
+  .rec-route-transport{display:flex;align-items:center;gap:8px;margin-top:7px;font-family:'Space Mono',monospace;font-size:10px}
+  .rec-route-bar{flex:1;height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
+  .rec-route-bar-fill{height:100%;background:#9b7ab5;border-radius:2px;transition:width .4s}
+  .rec-pin-dot{width:10px;height:10px;border-radius:50%;border:2px solid rgba(255,255,255,.8);flex-shrink:0}
   .rec-item-cb{width:15px;height:15px;flex-shrink:0;accent-color:var(--rust);margin-top:2px;cursor:pointer}
   .rec-item-time{font-family:'Space Mono',monospace;font-size:10px;color:var(--rust-deep);font-weight:700;white-space:nowrap;min-width:48px;padding-top:2px}
   .rec-item-main{flex:1;min-width:0}
@@ -1584,6 +1602,62 @@ const RECOMMEND = [
 ];
 
 let recChecked = new Set(); // "dayIdx-i" 형태
+let recMapPrev = null;  // {lat,lng,title,color,row}
+let recMapCurr = null;  // {lat,lng,title,color,row}
+let recPreviewLayer = null;
+let recPreviewPins = [];
+
+function clearRecPreview(){
+  if(recPreviewLayer){ map.removeLayer(recPreviewLayer); recPreviewLayer=null; }
+  recPreviewPins.forEach(m=>map.removeLayer(m));
+  recPreviewPins=[];
+}
+
+function addRecPin(lat, lng, title, color, tag){
+  const emoji = (tag||'').match(/\p{Emoji_Presentation}|\p{Emoji}️/u)?.[0] || '📍';
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="plan-pin" style="background:${color};box-shadow:0 0 0 3px rgba(155,122,181,.5)"><span>${emoji}</span></div>`,
+    iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-32]
+  });
+  const m = L.marker([lat,lng],{icon,zIndexOffset:500}).addTo(map);
+  m.bindPopup(`<div class="pop-name">${title}</div><div class="pop-desc" style="color:${color}">✦ 추천 일정 미리보기</div>`);
+  recPreviewPins.push(m);
+  return m;
+}
+
+function renderRecRoutePanel(prev, curr, transport){
+  const panel = document.getElementById('recRoutePanel');
+  if(!panel) return;
+  // 거리 기반 바 너비 (최대 10km = 100%)
+  const barPct = Math.min(100, Math.round(transport.km/10*100));
+  panel.className='rec-route-panel show';
+  panel.innerHTML=`
+    <button class="rec-route-clear" onclick="clearRecMapSel()">✕</button>
+    <div>
+      <span style="opacity:.6;font-size:10px">FROM</span> <b>${prev.title}</b>
+      <span style="opacity:.4;margin:0 6px">→</span>
+      <span style="opacity:.6;font-size:10px">TO</span> <b>${curr.title}</b>
+    </div>
+    <div class="rec-route-transport">
+      <span class="rec-pin-dot" style="background:${prev.color}"></span>
+      <span style="font-size:14px">${transport.icon}</span>
+      <b style="letter-spacing:.04em">${transport.label}</b>
+      <span style="opacity:.6">약 ${transport.mins}분</span>
+      <div class="rec-route-bar"><div class="rec-route-bar-fill" style="width:${barPct}%"></div></div>
+      <span style="opacity:.6">${transport.km.toFixed(1)}km</span>
+      <span class="rec-pin-dot" style="background:${curr.color}"></span>
+    </div>`;
+}
+
+function clearRecMapSel(){
+  clearRecPreview();
+  if(recMapPrev?.row) recMapPrev.row.classList.remove('map-prev');
+  if(recMapCurr?.row) recMapCurr.row.classList.remove('map-active');
+  recMapPrev=null; recMapCurr=null;
+  const panel=document.getElementById('recRoutePanel');
+  if(panel) panel.className='rec-route-panel';
+}
 
 /* ---------- RENDER: RECOMMEND ---------- */
 function renderRecommend(){
@@ -1592,10 +1666,19 @@ function renderRecommend(){
   const wrap = document.createElement('div');
   wrap.className = 'rec-wrap';
 
+  // 맵 상태 초기화
+  clearRecMapSel();
+
   const intro = document.createElement('div');
   intro.className = 'rec-intro';
-  intro.innerHTML = `<h3>✦ 추천 여행 일정</h3><p>3 Days of Design 핵심 이벤트 + 코펜하겐 관광을 조합한 큐레이션입니다. 체크 후 "내 일정에 추가"로 일정 탭에 반영하세요.</p>`;
+  intro.innerHTML = `<h3>✦ 추천 여행 일정</h3><p>항목을 클릭하면 지도에 위치가 표시됩니다. 연속으로 클릭하면 두 장소 간 동선과 이동시간이 비교됩니다.</p>`;
   wrap.appendChild(intro);
+
+  // 동선 비교 패널 (sticky, 클릭 시 채워짐)
+  const routePanel = document.createElement('div');
+  routePanel.className = 'rec-route-panel';
+  routePanel.id = 'recRoutePanel';
+  wrap.appendChild(routePanel);
 
   RECOMMEND.forEach((day)=>{
     const dayEl = document.createElement('div');
@@ -1637,26 +1720,101 @@ function renderRecommend(){
       themeEl.textContent = `📍 ${day.theme}`;
       itemsEl.appendChild(themeEl);
 
+      const dayColor = DAY_COLORS[day.dayIdx] || '#888';
+
       day.items.forEach((it,i)=>{
         const key = `${day.dayIdx}-${i}`;
         const isChecked = recChecked.has(key);
+        const hasCoords = !!(it._lat && it._lng);
         const row = document.createElement('div');
         row.className = 'rec-item' + (isChecked?' added':'');
+
+        // 좌표 있는 항목은 지도 아이콘 표시
+        const mapHint = hasCoords
+          ? `<span style="font-size:10px;color:var(--teal);margin-left:4px;opacity:.7" title="지도에서 확인 가능">📍</span>`
+          : '';
+
         row.innerHTML = `
-          <input type="checkbox" class="rec-item-cb" ${isChecked?'checked':''}>
+          <input type="checkbox" class="rec-item-cb" ${isChecked?'checked':''} title="일정에 추가">
           <span class="rec-item-time">${it.time}</span>
           <div class="rec-item-main">
-            <div class="rec-item-title">${it.title}</div>
+            <div class="rec-item-title">${it.title}${mapHint}</div>
             <div class="rec-item-note">${it.note}</div>
             <span class="rec-item-tag" style="background:${it.color}">${it.tag}</span>
           </div>`;
+
         const cb = row.querySelector('.rec-item-cb');
-        cb.onchange = ()=>{
+
+        // 체크박스 클릭 → 일정 선택 (지도 클릭과 분리)
+        cb.addEventListener('change', e=>{
+          e.stopPropagation();
           if(cb.checked) recChecked.add(key); else recChecked.delete(key);
           row.classList.toggle('added', cb.checked);
           updateRecFooter();
-        };
-        row.addEventListener('click', e=>{ if(e.target!==cb){ cb.checked=!cb.checked; cb.onchange(); } });
+        });
+        cb.addEventListener('click', e=>e.stopPropagation());
+
+        // 행 클릭 → 지도 미리보기 + 동선 비교
+        row.addEventListener('click', ()=>{
+          // 좌표 없으면 체크박스 토글로 대체
+          if(!hasCoords){
+            cb.checked=!cb.checked; cb.dispatchEvent(new Event('change'));
+            return;
+          }
+
+          clearRecPreview();
+
+          // 이전 항목 처리
+          if(recMapCurr){
+            if(recMapPrev?.row) recMapPrev.row.classList.remove('map-prev');
+            recMapPrev = recMapCurr;
+            recMapPrev.row.classList.remove('map-active');
+            recMapPrev.row.classList.add('map-prev');
+          }
+
+          // 현재 항목 설정
+          if(recMapCurr?.row) recMapCurr.row.classList.remove('map-active');
+          recMapCurr = {lat:it._lat, lng:it._lng, title:it.title, color:dayColor, tag:it.tag, row};
+          row.classList.add('map-active');
+
+          // 현재 핀 표시
+          const pin = addRecPin(it._lat, it._lng, it.title, dayColor, it.tag);
+
+          if(recMapPrev && recMapPrev.lat && recMapPrev.lng){
+            // 이전 핀도 표시
+            addRecPin(recMapPrev.lat, recMapPrev.lng, recMapPrev.title, recMapPrev.color, recMapPrev.tag);
+
+            // 경로선 그리기
+            const t = transportBetween(
+              {lat:recMapPrev.lat, lng:recMapPrev.lng},
+              {lat:recMapCurr.lat, lng:recMapCurr.lng}
+            );
+            recPreviewLayer = L.polyline(
+              [[recMapPrev.lat,recMapPrev.lng],[recMapCurr.lat,recMapCurr.lng]],
+              {color:'#9b7ab5', weight:3, opacity:.85, dashArray:'6 4'}
+            ).addTo(map);
+
+            // 거리 팝업
+            const mid = [(recMapPrev.lat+recMapCurr.lat)/2, (recMapPrev.lng+recMapCurr.lng)/2];
+            L.popup({closeButton:false, className:'', offset:[0,0]})
+              .setLatLng(mid)
+              .setContent(`<div style="font-family:Space Mono,monospace;font-size:11px;font-weight:700;padding:4px 8px">${t.icon} ${t.label} ~${t.mins}분 · ${t.km.toFixed(1)}km</div>`)
+              .openOn(map);
+
+            // 패널 업데이트
+            renderRecRoutePanel(recMapPrev, recMapCurr, t);
+
+            map.fitBounds(
+              [[recMapPrev.lat,recMapPrev.lng],[recMapCurr.lat,recMapCurr.lng]],
+              {padding:[55,55], maxZoom:15}
+            );
+          } else {
+            // 첫 클릭: 해당 위치로 이동
+            map.flyTo([it._lat, it._lng], 15, {duration:.8});
+            pin.openPopup();
+          }
+        });
+
         itemsEl.appendChild(row);
       });
     }
@@ -2308,6 +2466,8 @@ function addUserMarker(place, di){
 /* ---------- TABS ---------- */
 let activeTab='plan';
 function setTab(t){
+  // 추천 탭 벗어나면 지도 프리뷰 정리
+  if(activeTab==='rec' && t!=='rec') clearRecMapSel();
   activeTab=t;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   if(t==='plan'){
