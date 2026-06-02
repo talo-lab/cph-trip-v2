@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { system, input } = req.body || {};
+    const { system, input, max_tokens } = req.body || {};
     if (!input) return res.status(400).json({ error: "input이 비어 있습니다." });
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
-        max_tokens: 300,
+        max_tokens: max_tokens || 300,
         system: system || "",
         messages: [{ role: "user", content: String(input) }],
       }),
