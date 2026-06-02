@@ -251,6 +251,13 @@
   }
   .ev-add-btn:hover{background:var(--rust-deep)}
   .ev-add-btn.done{background:var(--sage)}
+  .ev-booking-link{
+    display:inline-flex;align-items:center;gap:4px;
+    font-size:12px;font-weight:700;color:var(--teal);
+    text-decoration:none;border-bottom:1.5px solid var(--teal);
+    padding-bottom:1px;transition:.15s;
+  }
+  .ev-booking-link:hover{color:var(--rust);border-color:var(--rust)}
 
   /* ============ DISTRICTS TAB ============ */
   .dist-list{padding:10px 0}
@@ -838,6 +845,7 @@ async function loadEvDetail(ev, id){
   "detail": "3~4문장 상세 설명 (한국어, 행사 성격·볼거리·분위기)",
   "reservation": "불필요" | "사전등록 권장" | "티켓 필요",
   "reservationNote": "예약 관련 한 줄 안내 (없으면 빈 문자열)",
+  "bookingUrl": "예약/등록 페이지 URL. 공식 페스티벌 사이트(https://www.3daysofdesign.dk/events)가 기본. 브랜드 고유 예약 페이지를 알면 해당 URL. 불필요이면 빈 문자열",
   "items": ["준비물1","준비물2",...],
   "duration": "예상 소요시간 (예: 30분~1시간)",
   "tips": "현장 팁 한 문장"
@@ -875,7 +883,10 @@ function renderEvDetail(d, el){
     </div>
     <div class="ev-section">
       <div class="ev-section-label">사전예약</div>
-      <div class="ev-badge ${resClass}">${resIcon} ${d.reservation}</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="ev-badge ${resClass}">${resIcon} ${d.reservation}</div>
+        ${d.bookingUrl&&d.reservation!=='불필요'?`<a href="${d.bookingUrl}" target="_blank" rel="noopener" class="ev-booking-link">🔗 예약하기 ↗</a>`:''}
+      </div>
       ${d.reservationNote?`<div style="font-size:11.5px;color:var(--slate);margin-top:5px">${d.reservationNote}</div>`:''}
     </div>
     <div class="ev-section">
