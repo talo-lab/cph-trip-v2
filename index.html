@@ -585,60 +585,16 @@
   /* 드롭 가능 영역 하이라이트 */
   .day-body.drag-over{background:rgba(200,73,42,.03);outline:1.5px dashed var(--rust);outline-offset:-4px}
 
-  /* ============ LOGIN SCREEN ============ */
-  .login-screen{
-    position:fixed;inset:0;z-index:9999;background:var(--paper);
-    background-image:radial-gradient(var(--line) .5px,transparent .5px);
-    background-size:14px 14px;
-    display:flex;align-items:center;justify-content:center;
+  /* ============ USER SELECTOR ============ */
+  .user-selector{display:flex;gap:6px;margin-top:8px}
+  .user-sel-btn{
+    padding:4px 12px;border:1.5px solid rgba(255,255,255,.25);background:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.08em;
+    color:rgba(255,255,255,.55);transition:.15s;
   }
-  .login-card{
-    background:var(--cream);border:2px solid var(--ink);
-    padding:36px 40px;width:340px;
-    box-shadow:8px 8px 0 rgba(40,30,20,.14);
-  }
-  .login-card h2{font-family:'Fraunces',serif;font-size:28px;font-weight:600;line-height:.95;margin-bottom:4px}
-  .login-card h2 em{font-style:italic;color:var(--rust)}
-  .login-kicker{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate);margin-bottom:10px}
-  .login-lead{font-size:12.5px;color:var(--slate);margin-bottom:22px;line-height:1.4}
-  .login-field-label{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-bottom:8px;display:block}
-  .login-user-row{display:flex;gap:8px;margin-bottom:16px}
-  .login-user-btn{
-    flex:1;padding:12px 6px;border:2px solid var(--line);background:none;cursor:pointer;
-    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em;
-    transition:.15s;color:var(--ink);
-  }
-  .login-user-btn.sel.miju{background:var(--plum);color:#fff;border-color:var(--plum)}
-  .login-user-btn.sel.sanghyo{background:var(--teal);color:#fff;border-color:var(--teal)}
-  .login-user-btn:hover:not(.sel){background:rgba(0,0,0,.04)}
-  .login-pass-row{display:flex}
-  .login-pass{
-    flex:1;border:2px solid var(--ink);border-right:none;background:#fff;
-    padding:10px 12px;font-family:'Archivo';font-size:14px;color:var(--ink);
-  }
-  .login-pass:focus{outline:none;box-shadow:inset 0 0 0 1px var(--rust)}
-  .login-submit{
-    padding:0 18px;background:var(--rust);color:#fff;border:2px solid var(--ink);border-left:none;
-    font-family:'Space Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;
-  }
-  .login-submit:hover{background:var(--rust-deep)}
-  .login-submit:disabled{background:var(--line);color:var(--slate);cursor:wait}
-  .login-err{font-size:11px;color:var(--rust);margin-top:10px;min-height:16px;font-family:'Space Mono',monospace}
-
-  /* ============ USER BADGE ============ */
-  .user-badge{
-    display:none;align-items:center;gap:8px;margin-top:8px;padding:5px 9px;
-    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.05em;
-    background:rgba(0,0,0,.2);width:fit-content;border:1.5px solid rgba(255,255,255,.2);
-  }
-  .user-badge.miju{border-left:3px solid var(--plum)}
-  .user-badge.sanghyo{border-left:3px solid var(--teal)}
-  .user-badge .uname{color:var(--cream)}
-  .logout-btn{
-    background:none;border:none;cursor:pointer;color:rgba(255,255,255,.5);
-    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.04em;padding:0;transition:.12s;
-  }
-  .logout-btn:hover{color:rgba(255,255,255,.9)}
+  .user-sel-btn:hover{color:#fff;border-color:rgba(255,255,255,.55)}
+  .user-sel-btn.active.miju{background:var(--plum);color:#fff;border-color:var(--plum)}
+  .user-sel-btn.active.sanghyo{background:var(--teal);color:#fff;border-color:var(--teal)}
 
   /* ============ ITEM USER TAGS ============ */
   .item-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
@@ -682,9 +638,9 @@
       <div class="kicker"><span>COPENHAGEN · DENMARK</span><span class="dot"></span></div>
       <h1>3 Days of <em>Design</em><br>2026</h1>
       <div class="sub">JUN 8 — JUN 16 · 미주 & 상효 · "Make This Moment Matter"</div>
-      <div class="user-badge" id="userBadge">
-        <span class="uname" id="userBadgeName"></span>
-        <button class="logout-btn" id="logoutBtn">로그아웃</button>
+      <div class="user-selector" id="userSelector">
+        <button class="user-sel-btn" data-user="miju">미주</button>
+        <button class="user-sel-btn" data-user="sanghyo">상효</button>
       </div>
     </header>
 
@@ -744,76 +700,23 @@
   </main>
 </div>
 
-<div class="login-screen" id="loginScreen" style="display:none">
-  <div class="login-card">
-    <div class="login-kicker">COPENHAGEN · JUNE 2026</div>
-    <h2>3 Days of <em>Design</em></h2>
-    <p class="login-lead">미주 & 상효의 여행 플래너<br>로그인하면 어느 기기에서나 일정이 동기화돼요.</p>
-    <label class="login-field-label">나는 누구?</label>
-    <div class="login-user-row">
-      <button class="login-user-btn" data-user="miju">미주</button>
-      <button class="login-user-btn" data-user="sanghyo">상효</button>
-    </div>
-    <label class="login-field-label">비밀번호</label>
-    <div class="login-pass-row">
-      <input type="password" class="login-pass" id="loginPass" placeholder="••••••••">
-      <button class="login-submit" id="loginSubmit">입장 →</button>
-    </div>
-    <p class="login-err" id="loginErr"></p>
-  </div>
-</div>
-
 <script>
-/* ---------- AUTH ---------- */
+/* ---------- USER ---------- */
 let currentUser = null; // 'miju' | 'sanghyo'
-let authToken   = null;
 const USER_LABELS = { miju:'미주', sanghyo:'상효' };
 
-function loadAuth(){
-  try{
-    const d = JSON.parse(localStorage.getItem('cph_auth')||'null');
-    if(d?.user && d?.token){ currentUser=d.user; authToken=d.token; }
-  }catch(e){}
+function loadUserPref(){
+  currentUser = localStorage.getItem('cph_user') || null;
 }
-function saveAuth(user, token){
-  currentUser=user; authToken=token;
-  try{ localStorage.setItem('cph_auth', JSON.stringify({user,token})); }catch(e){}
+function saveUserPref(user){
+  currentUser = user;
+  try{ localStorage.setItem('cph_user', user); }catch(e){}
 }
-function clearAuth(){
-  currentUser=null; authToken=null;
-  try{ localStorage.removeItem('cph_auth'); }catch(e){}
-}
-function updateUserBadge(){
-  const badge=document.getElementById('userBadge');
-  const name=document.getElementById('userBadgeName');
-  if(!badge||!name) return;
-  if(currentUser){
-    name.textContent = USER_LABELS[currentUser];
-    badge.className  = 'user-badge '+currentUser;
-    badge.style.display='flex';
-  } else {
-    badge.style.display='none';
-  }
-}
-function showLoginScreen(){ document.getElementById('loginScreen').style.display='flex'; }
-function hideLoginScreen(){ document.getElementById('loginScreen').style.display='none'; updateUserBadge(); }
-
-async function doLogin(user, password){
-  const r = await fetch('/api/auth',{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({user,password})
+function updateUserSelector(){
+  document.querySelectorAll('.user-sel-btn').forEach(btn=>{
+    const isActive = btn.dataset.user === currentUser;
+    btn.className = 'user-sel-btn' + (isActive ? ' active '+btn.dataset.user : '');
   });
-  if(!r.ok){
-    let msg='서버 오류가 발생했어요';
-    try{ const d=await r.json(); msg=d.error||msg; }catch{}
-    throw new Error(msg);
-  }
-  const {token} = await r.json();
-  saveAuth(user, token);
-}
-async function doLogout(){
-  try{ await fetch('/api/auth',{method:'DELETE',headers:{Authorization:`Bearer ${authToken}`}}); }catch(e){}
-  clearAuth(); showLoginScreen();
 }
 
 /* ---------- DATA ---------- */
@@ -884,66 +787,22 @@ let plan;
 
 async function loadPlan(){
   let loaded = null;
-
-  // 1순위: Vercel KV (서버) — 로그인 상태일 때
-  if(authToken){
-    try{
-      const r = await fetch('/api/plan',{headers:{Authorization:`Bearer ${authToken}`}});
-      if(r.status===401){ clearAuth(); showLoginScreen(); return; }
-      if(r.ok){
-        const data = await r.json();
-        loaded = data.plan;
-        if(data.favs) favorites = new Set(data.favs);
-      }
-    }catch(e){}
-  }
-
-  // 2순위: localStorage (오프라인 폴백)
-  if(!loaded){
-    try{ const raw=localStorage.getItem(STORE_KEY); if(raw) loaded=JSON.parse(raw); }catch(e){}
-  }
-
+  try{ const raw=localStorage.getItem(STORE_KEY); if(raw) loaded=JSON.parse(raw); }catch(e){}
   plan = loaded || structuredClone(DEFAULT_PLAN);
 }
 
 let saveTimer;
 async function savePlan(){
-  // localStorage: 즉시 저장 (탭 전환·새로고침 대비)
   try{ localStorage.setItem(STORE_KEY, JSON.stringify(plan)); }catch(e){}
-
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async()=>{
-    // 서버 저장
-    if(authToken){
-      try{
-        await fetch('/api/plan',{
-          method:'POST',
-          headers:{Authorization:`Bearer ${authToken}`,'Content-Type':'application/json'},
-          body:JSON.stringify({plan})
-        });
-      }catch(e){}
-    }
+  saveTimer = setTimeout(()=>{
     const s=document.getElementById('saver');
     if(s){ s.classList.add('show'); setTimeout(()=>s.classList.remove('show'),1400); }
   },400);
 }
 
-let saveFavTimer;
 function saveFavs(){
   try{ localStorage.setItem(FAV_KEY, JSON.stringify([...favorites])); }catch(e){}
-  // 서버 즐겨찾기 동기화 (디바운스)
-  clearTimeout(saveFavTimer);
-  saveFavTimer = setTimeout(async()=>{
-    if(authToken){
-      try{
-        await fetch('/api/plan',{
-          method:'POST',
-          headers:{Authorization:`Bearer ${authToken}`,'Content-Type':'application/json'},
-          body:JSON.stringify({favs:[...favorites]})
-        });
-      }catch(e){}
-    }
-  },400);
 }
 
 /* ---------- PLAN MAP VISUALIZATION ---------- */
@@ -2816,6 +2675,15 @@ function setTab(t){
 }
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 
+// 사용자 선택 (미주 / 상효)
+document.querySelectorAll('.user-sel-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    saveUserPref(btn.dataset.user);
+    updateUserSelector();
+    renderPlan();
+  });
+});
+
 // 드로어 참가자·공개 버튼
 document.querySelectorAll('.drawer-with-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -2835,44 +2703,6 @@ document.querySelectorAll('.drawer-vis-btn').forEach(btn=>{
     if(it._personal && !it._addedBy) it._addedBy = currentUser;
     savePlan(); updateDrawerPrivacy(); renderPlan();
   });
-});
-
-// 로그인 폼
-let _loginUser = null;
-document.querySelectorAll('.login-user-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.login-user-btn').forEach(b=>b.classList.remove('sel','miju','sanghyo'));
-    btn.classList.add('sel', btn.dataset.user);
-    _loginUser = btn.dataset.user;
-    document.getElementById('loginPass').focus();
-  });
-});
-async function submitLogin(){
-  const err  = document.getElementById('loginErr');
-  const pass = document.getElementById('loginPass').value;
-  const sub  = document.getElementById('loginSubmit');
-  if(!_loginUser){ err.textContent='미주 또는 상효를 선택해주세요'; return; }
-  if(!pass){ err.textContent='비밀번호를 입력해주세요'; return; }
-  sub.disabled=true; sub.textContent='로그인 중...'; err.textContent='';
-  try{
-    await doLogin(_loginUser, pass);
-    hideLoginScreen();
-    await loadPlan();
-    plan.forEach(day=>day.items.forEach(it=>{
-      if(it._user && it._lat && it._lng) addUserMarker({title:it.title,note:it.note,lat:it._lat,lng:it._lng});
-    }));
-    setTab('plan');
-  }catch(e){
-    err.textContent=e.message;
-    sub.disabled=false; sub.textContent='입장 →';
-  }
-}
-document.getElementById('loginSubmit').addEventListener('click', submitLogin);
-document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key==='Enter') submitLogin(); });
-
-// 로그아웃
-document.getElementById('logoutBtn').addEventListener('click',()=>{
-  if(confirm('로그아웃하시겠어요?')) doLogout();
 });
 
 // 드로어 이벤트
@@ -3155,20 +2985,12 @@ if('serviceWorker' in navigator){
 
 /* ---------- INIT ---------- */
 (async()=>{
-  loadAuth();
-
-  // 미로그인 → 로그인 화면
-  if(!authToken){ showLoginScreen(); return; }
-
+  loadUserPref();
   await loadPlan();
-
-  // 토큰 만료 등으로 currentUser가 사라진 경우
-  if(!currentUser){ showLoginScreen(); return; }
-
   plan.forEach(day=>day.items.forEach(it=>{
     if(it._user && it._lat && it._lng) addUserMarker({title:it.title,note:it.note,lat:it._lat,lng:it._lng});
   }));
-  updateUserBadge();
+  updateUserSelector();
   setTab('plan');
 })();
 </script>
