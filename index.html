@@ -2862,17 +2862,8 @@ const map = L.map('map',{zoomControl:true,attributionControl:false}).setView([55
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
 const markers={};
 
-// ── 지구 배경 레이어 (원형 영역 + 라벨)
-const DISTRICT_RADII = {kongens:360,frederik:420,nordhavn:600,islands:400,christ:400,holmen:420,kultur:310,rosen:340};
+// ── 지구 라벨 레이어
 DISTRICTS.forEach((d)=>{
-  // 반투명 배경 원
-  L.circle([d.lat,d.lng],{
-    radius: DISTRICT_RADII[d.key]||380,
-    color:d.color, weight:1.5, opacity:.45,
-    fillColor:d.color, fillOpacity:.07,
-    interactive:false
-  }).addTo(map);
-
   // 지구명 라벨 마커 (클릭 가능)
   const lbl = L.divIcon({
     className:'',
