@@ -6,5 +6,8 @@
   "description": "Copenhagen 3 Days of Design 2026 trip planner",
   "scripts": {
     "dev": "vercel dev"
+  },
+  "dependencies": {
+    "ioredis": "^5.3.2"
   }
 }
