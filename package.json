@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Copenhagen 3 Days of Design 2026 trip planner",
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "check": "node --check src/app.js"
   },
   "dependencies": {
     "ioredis": "^5.3.2"

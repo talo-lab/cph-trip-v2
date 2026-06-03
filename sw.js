@@ -3,6 +3,11 @@ const VERSION = 'cph-v1';
 const STATIC = [
   '/',
   '/index.html',
+  '/events-data.js',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/src/styles.css',
+  '/src/app.js',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,400&family=Space+Mono:wght@400;700&family=Archivo:wght@400;500;600;700;800&display=swap',

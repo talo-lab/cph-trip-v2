@@ -1,104 +1,55 @@
-# 코펜하겐 여행 플래너 — 배포 가이드
+# CPH Trip Planner
 
-이 폴더를 Vercel에 올리면 누구나 접속할 수 있는 웹앱이 됩니다.
-"＋장소" 분석 기능(Claude API)은 **서버리스 함수**가 키를 안전하게 보관하고 대신 호출하므로,
-API 키가 브라우저에 노출되지 않습니다.
+Copenhagen 3 Days of Design 2026 trip planner for two travelers. The app runs as a Vercel-hosted static/PWA frontend with a few serverless API routes for auth, saved plans, place extraction, event lookup, and transit data.
 
+## Project Structure
+
+- `index.html` - app shell and markup.
+- `src/styles.css` - extracted application styles.
+- `src/app.js` - extracted browser application logic.
+- `events-data.js` - generated static event dataset.
+- `api/` - Vercel serverless functions.
+- `sw.js` - service worker for app shell and map tile caching.
+- `generate_events.py` - helper script for regenerating event data.
+
+## Local Development
+
+Install dependencies first:
+
+```bash
+npm install
 ```
-deploy/
-├─ index.html          ← 웹앱 본체 (GPS · 지도 · 일정)
-├─ api/
-│  └─ extract.js       ← Claude API 프록시 (키는 서버에만)
-└─ package.json
+
+Run with Vercel's local runtime:
+
+```bash
+npm run dev
 ```
 
----
+Check browser JavaScript syntax:
 
-## 1단계 · Anthropic API 키 발급
+```bash
+npm run check
+```
 
-1. https://console.anthropic.com 접속 → 가입/로그인
-2. 좌측 메뉴 **API Keys** → **Create Key**
-3. 이름 입력(예: `cph-trip`) 후 생성 → **키를 한 번만 보여주므로 복사해 안전한 곳에 보관**
-   (형식: `sk-ant-...`)
-4. **Billing(결제)** 메뉴에서 결제수단 등록 + 소액 충전(예: $5).
-   - 이 앱은 호출당 토큰이 매우 적고(요청+응답 합쳐 수백 토큰), 유명 장소는 사전에서 무료 처리되므로
-     실제 비용은 보통 한 달에 몇 백 원 수준입니다.
-   - 한도가 걱정되면 **Usage limits**에서 월 상한(예: $2)을 걸어두면 초과 시 자동 차단됩니다.
+## Required Environment Variables
 
-> 키 보안: 키는 절대 깃허브·채팅·index.html에 적지 마세요. 오직 4단계의 Vercel 환경변수에만 넣습니다.
+Set these in Vercel project settings before production deployment:
 
----
+- `ANTHROPIC_API_KEY` - used by `api/extract.js`.
+- `REDIS_URL` or `STORAGE_URL` or `KV_URL` - used by `api/auth.js` and `api/plan.js`.
+- `PASS_MIJU` - login password for the `miju` user.
+- `PASS_SANGHYO` - login password for the `sanghyo` user.
 
-## 2단계 · 코드 준비 (둘 중 하나)
+After changing environment variables, redeploy the project so serverless functions receive the new values.
 
-### 방법 A — 가장 쉬움 (드래그 업로드)
-이 `deploy` 폴더를 통째로 본인 컴퓨터에 내려받아 둡니다. (3단계에서 그대로 업로드)
+## Deployment Notes
 
-### 방법 B — GitHub 연동 (업데이트가 편함)
-1. https://github.com 에서 새 저장소(repository) 생성 (예: `cph-trip`)
-2. `deploy` 폴더 안의 파일들을 저장소에 올림
-   - 웹에서 "Add file → Upload files"로 `index.html`, `package.json`, `api/extract.js`를 끌어다 놓아도 됩니다.
+The source repository `talo-lab/cph-trip` is currently read-only for this session, so active development should happen on a fork or a new writable repository. Once the fork exists, update the local remote and push the refactor branch:
 
----
+```bash
+git remote set-url origin https://github.com/<owner>/cph-trip.git
+git push -u origin codex/refactor-baseline
+```
 
-## 3단계 · Vercel 배포
-
-1. https://vercel.com 접속 → **GitHub/이메일로 가입** (무료 플랜으로 충분)
-2. **Add New… → Project**
-3. 코드 가져오기
-   - 방법 A를 골랐다면: "Deploy" 화면에서 폴더를 드래그 업로드
-   - 방법 B를 골랐다면: 만든 GitHub 저장소를 **Import**
-4. 프레임워크 설정은 건드릴 필요 없음 (정적 HTML + 서버리스 함수를 자동 인식)
-5. 아직 **Deploy를 누르기 전에** 4단계(환경변수)를 먼저 설정하는 것이 좋습니다.
-   (이미 배포했다면 4단계 후 **Redeploy** 하면 됩니다.)
-
----
-
-## 4단계 · API 키를 환경변수로 연결 (가장 중요)
-
-1. Vercel 프로젝트 → **Settings → Environment Variables**
-2. 다음 한 줄 추가:
-   - **Name**: `ANTHROPIC_API_KEY`
-   - **Value**: 1단계에서 복사한 키 (`sk-ant-...`)
-   - **Environment**: Production, Preview, Development 모두 체크
-3. **Save**
-4. **Deployments** 탭 → 가장 최근 배포의 ⋯ → **Redeploy** (환경변수를 적용하려면 재배포 필요)
-
-이렇게 하면 `api/extract.js`가 `process.env.ANTHROPIC_API_KEY`로 키를 읽어
-서버 안에서만 사용하고, 브라우저에는 분석 결과(JSON)만 전달합니다.
-
----
-
-## 5단계 · 확인
-
-1. 배포 완료 후 받은 주소(예: `https://cph-trip.vercel.app`)로 접속
-2. **GPS**: 우측 하단 "◎ 내 위치" 클릭 → 권한 허용 → 현재 위치 핀과
-   가장 가까운 지구·숙소·SALU까지 거리 표시 (완전 무료)
-   - 단, GPS는 **https에서만** 동작합니다. Vercel은 기본 https라 문제없습니다.
-3. **＋장소** 탭에서 "Noma" 입력 → 사전에서 즉시 매칭(무료),
-   "Gubi 쇼룸" 같은 건 서버리스 함수를 통해 분석되어 일정에 자동 배치되는지 확인
-
----
-
-## 비용을 더 줄이고 싶다면 (이미 적용된 것 포함)
-
-- ✅ **유명 장소 사전**: 티볼리·뉘하운·Noma·Hay House 등은 API 없이 즉시 처리 (이미 적용)
-- ✅ **캐시**: 같은 입력을 다시 분석하지 않음 (이미 적용)
-- ✅ **응답 토큰 축소**: max_tokens 300으로 제한 (이미 적용)
-- 추가로 사전(`KNOWN_PLACES`)에 자주 쓰는 장소를 더 넣으면 호출이 더 줄어듭니다.
-- GPS는 브라우저 내장 기능이라 **호출 비용이 전혀 없습니다.**
-
----
-
-## 자주 묻는 것
-
-**Q. claude.ai 아티팩트에서 쓸 때랑 뭐가 다른가요?**
-A. 앱이 접속 도메인을 감지합니다. claude.ai 안에서는 기존처럼 직접 호출하고,
-배포 도메인에서는 자동으로 `/api/extract`(서버리스)를 통해 호출합니다. 코드 수정 불필요.
-
-**Q. GitHub 없이도 되나요?**
-A. 네, 3단계 방법 A(드래그 업로드)로 가능합니다. 다만 이후 수정 시 다시 업로드해야 합니다.
-
-**Q. 일정 저장은 어디에 되나요?**
-A. 각자 브라우저에 저장됩니다(localStorage). 여러 명이 같은 일정을 **공동 편집**하려면
-별도의 공용 데이터베이스가 필요합니다 — 원하면 그 구조로 확장할 수 있습니다.
+Vercel should import the forked repository and deploy from the branch or from `main` after the changes are merged.
