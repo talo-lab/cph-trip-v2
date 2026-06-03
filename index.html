@@ -677,9 +677,28 @@
   }
   .login-skip:hover{color:var(--rust);background:rgba(200,73,42,.03)}
 
+  .map-handle{display:none}
   @media(max-width:820px){
-    .app{grid-template-columns:1fr;grid-template-rows:50vh 50vh}
-    .panel{border-right:none;border-bottom:2px solid var(--ink)}
+    .app{display:block;position:relative;height:100vh;overflow:hidden}
+    .panel{
+      position:absolute;top:0;left:0;right:0;
+      border-right:none;border-bottom:2px solid var(--ink);overflow:hidden;
+    }
+    .map-wrap{
+      position:absolute;bottom:0;left:0;right:0;
+      border-top:3px solid var(--ink);background:#e8e0d0;
+    }
+    .map-wrap.anim{transition:height .28s cubic-bezier(.4,0,.2,1)}
+    #map{position:absolute;top:28px;left:0;right:0;bottom:0}
+    .map-handle{
+      display:flex;align-items:center;justify-content:center;
+      position:absolute;top:0;left:0;right:0;height:28px;
+      background:var(--cream);border-bottom:1px solid var(--line);
+      cursor:grab;z-index:10;touch-action:none;user-select:none;
+    }
+    .map-handle:active{cursor:grabbing}
+    .map-handle-bar{width:36px;height:4px;border-radius:2px;background:var(--line)}
+    .map-legend{top:38px}
     header.brand{padding:7px 14px 5px}
     .kicker{font-size:9px;letter-spacing:.1em}
     h1{font-size:20px;margin-top:3px;line-height:1}
@@ -752,6 +771,7 @@
 
   <!-- MAP -->
   <main class="map-wrap">
+    <div class="map-handle" id="mapHandle"><div class="map-handle-bar"></div></div>
     <div id="map"></div>
     <div class="map-legend">
       <h4>8 Design Districts</h4>
@@ -3167,6 +3187,78 @@ function hideFestMarker(id){
 function clearFestMarkers(){
   Object.keys(festMarkers).forEach(id=>hideFestMarker(id));
 }
+
+/* ---------- MOBILE MAP BOTTOM SHEET ---------- */
+(function(){
+  const SNAPS=[0.10,0.44,0.80]; // window.innerHeight 비율: peek / half / full
+  let snapIdx=1, startY=0, startH=0, dragging=false;
+
+  const wrap=document.querySelector('.map-wrap');
+  const pnl =document.querySelector('aside.panel');
+  const hdl =document.getElementById('mapHandle');
+  if(!hdl||!wrap||!pnl) return;
+
+  function isMobile(){ return window.innerWidth<=820; }
+
+  function applyH(h, anim){
+    if(anim) wrap.classList.add('anim'); else wrap.classList.remove('anim');
+    wrap.style.height = h+'px';
+    pnl.style.bottom  = h+'px';
+    clearTimeout(applyH._t);
+    applyH._t = setTimeout(()=>{
+      try{ map.invalidateSize(); }catch(e){}
+      wrap.classList.remove('anim');
+    }, anim ? 310 : 30);
+  }
+
+  function snap(idx, anim=true){
+    snapIdx = Math.max(0, Math.min(SNAPS.length-1, idx));
+    applyH(Math.round(SNAPS[snapIdx]*window.innerHeight), anim);
+  }
+
+  // 드래그
+  hdl.addEventListener('touchstart', e=>{
+    if(!isMobile()) return;
+    dragging=true; startY=e.touches[0].clientY; startH=wrap.offsetHeight;
+    wrap.classList.remove('anim');
+  },{passive:true});
+
+  window.addEventListener('touchmove', e=>{
+    if(!dragging||!isMobile()) return;
+    const dy  = startY - e.touches[0].clientY;
+    const min = SNAPS[0]*window.innerHeight;
+    const max = SNAPS[SNAPS.length-1]*window.innerHeight;
+    applyH(Math.max(min, Math.min(max, startH+dy)), false);
+  },{passive:true});
+
+  window.addEventListener('touchend', e=>{
+    if(!dragging||!isMobile()) return;
+    dragging=false;
+    const f      = wrap.offsetHeight/window.innerHeight;
+    const totalDy= startY - e.changedTouches[0].clientY;
+    // 가장 가까운 스냅 포인트
+    let best=0, bestD=Infinity;
+    SNAPS.forEach((s,i)=>{ const d=Math.abs(s-f); if(d<bestD){bestD=d;best=i;} });
+    // 빠른 스와이프면 방향으로 한 단계 이동
+    if(Math.abs(totalDy)>50) best = totalDy>0
+      ? Math.min(SNAPS.length-1, snapIdx+1)
+      : Math.max(0, snapIdx-1);
+    snap(best, true);
+  },{passive:true});
+
+  // 탭: 다음 단계로 순환
+  hdl.addEventListener('click', ()=>{
+    if(!isMobile()) return;
+    snap((snapIdx+1)%SNAPS.length, true);
+  });
+
+  function init(){
+    if(isMobile()) snap(snapIdx, false);
+    else{ wrap.style.height=''; wrap.style.transition=''; pnl.style.bottom=''; }
+  }
+  window.addEventListener('resize', ()=>{ clearTimeout(init._t); init._t=setTimeout(init,80); });
+  init();
+})();
 
 /* ---------- SERVICE WORKER ---------- */
 if('serviceWorker' in navigator){
