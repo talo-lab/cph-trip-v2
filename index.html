@@ -678,6 +678,13 @@
   .login-skip:hover{color:var(--rust);background:rgba(200,73,42,.03)}
 
   .map-handle{display:none}
+
+  /* ─ 터치 기기 전용: 호버 없으므로 × 숨김, 드래그 핸들 항상 표시 ─ */
+  @media(hover:none){
+    .item-x{display:none!important}
+    .drag-handle{opacity:.5!important;color:var(--slate)!important}
+  }
+
   @media(max-width:820px){
     .app{display:block;position:relative;height:100vh;overflow:hidden}
     .panel{
@@ -1745,6 +1752,9 @@ function renderPlan(){
       ghostClass:'sortable-ghost',
       chosenClass:'sortable-chosen',
       dragClass:'sortable-drag',
+      delay:150,
+      delayOnTouchOnly:true,
+      touchStartThreshold:4,
       onEnd:(evt)=>{
         const fromDi=+evt.item.dataset.di;
         const fromIdx=+evt.item.dataset.ii;
