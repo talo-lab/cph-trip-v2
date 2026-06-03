@@ -618,6 +618,22 @@
   .drawer-with-btn.active,.drawer-vis-btn.active{background:var(--ink);color:var(--cream);border-color:var(--ink)}
   .drawer-vis-btn[data-vis="personal"].active{background:var(--slate);border-color:var(--slate)}
 
+  /* ============ DRAWER RESPONSE CARD ============ */
+  .drawer-response{padding:11px 14px 13px;border-top:1px solid var(--line);background:rgba(47,107,107,.05);display:none}
+  .drawer-response.show{display:block}
+  .drawer-resp-text{font-size:12.5px;line-height:1.65;color:var(--ink);margin-bottom:10px;word-break:keep-all}
+  .drawer-resp-actions{display:flex;gap:7px;flex-wrap:wrap}
+  .drawer-sugg-btn{
+    padding:7px 12px;background:var(--teal);color:#fff;border:none;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;transition:.15s;
+  }
+  .drawer-sugg-btn:hover{background:#235555}
+  .drawer-dismiss-btn{
+    padding:7px 12px;background:none;border:1px solid var(--line);
+    color:var(--slate);cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;transition:.15s;
+  }
+  .drawer-dismiss-btn:hover{border-color:var(--rust);color:var(--rust)}
+
   /* ============ LOGIN MODAL ============ */
   .login-overlay{
     position:fixed;inset:0;z-index:10000;background:var(--paper);
@@ -727,6 +743,10 @@
         <button class="drawer-send" id="drawerSend">전송</button>
       </div>
       <div class="drawer-status" id="drawerStatus"></div>
+      <div class="drawer-response" id="drawerResponse">
+        <div class="drawer-resp-text" id="drawerRespText"></div>
+        <div class="drawer-resp-actions" id="drawerRespActions"></div>
+      </div>
     </div>
   </aside>
 
@@ -2667,24 +2687,113 @@ function closeDrawer(){
   drawerContext = null;
 }
 
+/* 질문 vs 명령 판별 — 명확한 플랜 편집 지시어만 command, 나머지는 question */
+function isQuestion(text){
+  return !/삭제해|지워줘|제거해|이동해|옮겨줘|날짜.*(변경|바꿔|수정)|시간.*(변경|바꿔|수정)|다른 날로|수정해줘|편집해줘/.test(text.trim());
+}
+
 async function sendDrawerMsg(){
   if(!drawerContext) return;
   const input = document.getElementById('drawerInput');
-  const btn = document.getElementById('drawerSend');
-  const st = document.getElementById('drawerStatus');
-  const raw = input.value.trim();
+  const btn   = document.getElementById('drawerSend');
+  const st    = document.getElementById('drawerStatus');
+  const resp  = document.getElementById('drawerResponse');
+  const raw   = input.value.trim();
   if(!raw) return;
 
-  const {di, ii} = drawerContext;
+  const {di,ii} = drawerContext;
   const item = plan[di]?.items[ii];
   if(!item) return;
 
-  btn.disabled = true; btn.textContent = '...';
-  st.className = 'drawer-status show';
-  st.textContent = '분석 중...';
+  btn.disabled=true; btn.textContent='...';
+  st.className='drawer-status show'; st.textContent='생각 중...';
+  resp.classList.remove('show');
 
-  // 전체 plan을 넘겨서 날짜 이동 등 모든 수정 요청을 처리
-  const sys = `You are a Copenhagen trip plan editor. The user selected a specific item and made a request about it (Korean or English). Apply the change to the full plan and output ONLY the updated full plan JSON array. No markdown, no explanation.
+  if(isQuestion(raw)) await _drawerQuestion(raw,di,ii,item,input,btn,st,resp);
+  else                await _drawerCommand(raw,di,ii,item,input,btn,st);
+}
+
+/* ── 질문 모드: 답변 생성 → 카드에 표시 → 선택적으로 일정 추가 ── */
+async function _drawerQuestion(raw,di,ii,item,input,btn,st,resp){
+  const dayLabel = plan[di]?.date+' · '+plan[di]?.tag;
+  const todayList = plan[di].items.map(it=>`  ${it.time||'?'} ${it.title}`).join('\n') || '  없음';
+  const nextItems = plan[di].items.slice(ii+1).filter(it=>it.time).slice(0,3)
+    .map(it=>`${it.time} ${it.title}`).join(', ') || '없음';
+  const gpsStr = currentPos
+    ? `현재 위치: 위도 ${currentPos.lat.toFixed(5)}, 경도 ${currentPos.lng.toFixed(5)}`
+    : '현재 위치: 미확인 (지도에서 "내 위치" 버튼을 눌러 활성화 가능)';
+
+  const sys=`You are a knowledgeable and warm travel assistant for a Korean couple (미주 and 상효) visiting Copenhagen for the 3 Days of Design festival, June 8–16, 2026.
+Respond in Korean. Be specific, practical, and helpful. You can answer anything about:
+- What to do next / recommendations based on location and remaining schedule
+- Copenhagen places, food, coffee, transportation, culture
+- Festival events, venues, and districts
+- Any travel question big or small
+
+If your answer includes a specific place or activity to add to the schedule, append exactly one tag at the very end:
+<add>{"title":"장소 또는 활동명","time":"HH:MM","note":"한 줄 설명","day_index":${di}}</add>
+Use 24h time. day_index ${di} = ${plan[di]?.date}.
+Only add this tag when your recommendation is specific enough to schedule. Omit entirely for general answers.`;
+
+  const ctx=`현재 선택 일정: "${item.title}" (${dayLabel})
+${gpsStr}
+오늘 전체 일정:
+${todayList}
+이후 남은 일정: ${nextItems}
+
+질문/요청: ${raw}`;
+
+  try{
+    const r=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({system:sys,input:ctx,max_tokens:800})});
+    if(!r.ok) throw new Error('서버 '+r.status);
+    const d=await r.json();
+    let text=(d.text||'').trim();
+
+    // <add> 파싱
+    let suggestion=null;
+    const m=text.match(/<add>([\s\S]*?)<\/add>/);
+    if(m){ try{ suggestion=JSON.parse(m[1].trim()); }catch(e){} text=text.replace(/<add>[\s\S]*?<\/add>/,'').trim(); }
+
+    // 응답 카드 렌더링
+    document.getElementById('drawerRespText').innerHTML=text.replace(/\n/g,'<br>');
+    const act=document.getElementById('drawerRespActions');
+    act.innerHTML='';
+
+    if(suggestion){
+      const addBtn=document.createElement('button');
+      addBtn.className='drawer-sugg-btn';
+      addBtn.textContent=`＋ "${suggestion.title}" 일정 추가`;
+      addBtn.onclick=()=>{
+        const td=suggestion.day_index??di;
+        if(plan[td]){
+          plan[td].items.push({time:suggestion.time||'',title:suggestion.title,note:suggestion.note||'',dist:'',_user:true});
+          sortDayByTime(td); savePlan(); renderPlan();
+          resp.classList.remove('show');
+          st.className='drawer-status show ok'; st.textContent='✓ 일정에 추가됐어요!';
+          setTimeout(closeDrawer,1400);
+        }
+      };
+      act.appendChild(addBtn);
+    }
+    const dimBtn=document.createElement('button');
+    dimBtn.className='drawer-dismiss-btn'; dimBtn.textContent='닫기';
+    dimBtn.onclick=()=>resp.classList.remove('show');
+    act.appendChild(dimBtn);
+
+    resp.classList.add('show');
+    st.className='drawer-status';
+    input.value='';
+  }catch(e){
+    st.className='drawer-status show err'; st.textContent=`실패 (${e.message})`;
+  }finally{
+    btn.disabled=false; btn.textContent='전송';
+  }
+}
+
+/* ── 명령 모드: 플랜 JSON 직접 수정 (기존 동작) ── */
+async function _drawerCommand(raw,di,ii,item,input,btn,st){
+  const sys=`You are a Copenhagen trip plan editor. The user selected a specific item and made a request about it (Korean or English). Apply the change to the full plan and output ONLY the updated full plan JSON array. No markdown, no explanation.
 Rules:
 - Never delete _fixed:true items
 - Preserve _user, _fixed, _lat, _lng, _dk fields on all items
@@ -2692,48 +2801,39 @@ Rules:
 - Sort each day's items by time after changes
 - Date reference: Day 0=6/8, Day 1=6/9, Day 2=6/10, Day 3=6/11, Day 4=6/12, Day 5=6/13, Day 6=6/14, Day 7=6/15, Day 8=6/16`;
 
-  const planJson = JSON.stringify(plan.map(day=>({
-    date:day.date, tag:day.tag, fest:day.fest,
+  const planJson=JSON.stringify(plan.map(day=>({
+    date:day.date,tag:day.tag,fest:day.fest,
     items:day.items.map(it=>({
-      time:it.time, title:it.title, note:it.note, dist:it.dist,
-      _fixed:it._fixed||undefined, _user:it._user||undefined,
-      _lat:it._lat||undefined, _lng:it._lng||undefined, _dk:it._dk||undefined
+      time:it.time,title:it.title,note:it.note,dist:it.dist,
+      _fixed:it._fixed||undefined,_user:it._user||undefined,
+      _lat:it._lat||undefined,_lng:it._lng||undefined,_dk:it._dk||undefined
     }))
   })));
-
-  const dayLabel = plan[di] ? `${plan[di].date} · ${plan[di].tag}` : `Day ${di}`;
-  const context = `Selected item: "${item.title}" on ${dayLabel}
-Full plan JSON:
-${planJson}
-
-User request: ${raw}`;
+  const dayLabel=plan[di]?.date+' · '+plan[di]?.tag;
+  const ctx=`Selected item: "${item.title}" on ${dayLabel}\nFull plan JSON:\n${planJson}\n\nUser request: ${raw}`;
 
   try{
-    const resp = await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({system:sys, input:context, max_tokens:4000})});
-    if(!resp.ok) throw new Error('서버 '+resp.status);
-    const data = await resp.json();
-    const txt = (data.text||'').replace(/```json|```/g,'').trim();
-    const updated = JSON.parse(txt);
+    const r=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({system:sys,input:ctx,max_tokens:4000})});
+    if(!r.ok) throw new Error('서버 '+r.status);
+    const d=await r.json();
+    const txt=(d.text||'').replace(/```json|```/g,'').trim();
+    const updated=JSON.parse(txt);
     if(!Array.isArray(updated)) throw new Error('형식 오류');
 
     updated.forEach((day,i)=>{
       if(!plan[i]) return;
-      const fixed = plan[i].items.filter(it=>it._fixed);
-      plan[i].items = day.items || [];
+      const fixed=plan[i].items.filter(it=>it._fixed);
+      plan[i].items=day.items||[];
       fixed.forEach(fi=>{ if(!plan[i].items.some(it=>it.title===fi.title)) plan[i].items.push(fi); });
       sortDayByTime(i);
     });
-
-    await savePlan();
-    input.value='';
-    st.className='drawer-status show ok';
-    st.textContent='✓ 수정됐어요!';
+    await savePlan(); input.value='';
+    st.className='drawer-status show ok'; st.textContent='✓ 수정됐어요!';
     if(activeTab==='plan') renderPlan();
-    setTimeout(closeDrawer, 1200);
+    setTimeout(closeDrawer,1200);
   }catch(e){
-    st.className='drawer-status show err';
-    st.textContent=`실패 (${e.message})`;
+    st.className='drawer-status show err'; st.textContent=`실패 (${e.message})`;
   }finally{
     btn.disabled=false; btn.textContent='전송';
   }
@@ -2921,6 +3021,7 @@ DISTRICTS.forEach((d,i)=>{
 
 /* ---------- GPS (무료, 브라우저 내장) ---------- */
 let meMarker=null;
+let currentPos=null;
 function haversineKm(a,b,c,d){
   const R=6371,toR=x=>x*Math.PI/180;
   const dLat=toR(c-a),dLng=toR(d-b);
@@ -2951,6 +3052,7 @@ document.getElementById('gpsBtn').addEventListener('click',()=>{
       info.innerHTML=`<b>가장 가까운 지구</b><br>${near.name} · ${nd.toFixed(1)}km (도보 ~${walkMin(nd)}분)
         <br><br>🏠 숙소까지 ${stayKm.toFixed(1)}km (~${walkMin(stayKm)}분)
         <br>🍽 SALU까지 ${saluKm.toFixed(1)}km (~${walkMin(saluKm)}분)`;
+      currentPos={lat:la,lng:lo};
       btn.classList.add('active'); btn.disabled=false; btn.textContent='◎ 내 위치';
     },
     err=>{
